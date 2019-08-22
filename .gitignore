@@ -1,0 +1,6 @@
+*.jbl
+*.log
+*.png
+*.pyc
+__pycache__/
+.idea/

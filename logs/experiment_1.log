@@ -1,0 +1,705 @@
+> time python -u run.py --dataset=data/gen.multi.test.jbl --generate=100 --monte_carlo_iterations=100 --threshold=0.1 --logging=50 --minimum_output_depth=1 --output_type=deepest --breath_to_depth_ratio=10000 &> out1.log
+real    1m7.949s
+user    1m7.854s
+sys     0m0.084s
+
+[
+    {
+        "smiles": "CC(C)=N.CC(O)=CON(C)OC(C)(C)C",
+        "depth": 14,
+        "score": 7.914200562988777
+    }
+]
+[
+    {
+        "smiles": "C=CC(=C=CC(=C)C)OCC.C=O.CC=C=C(C)O",
+        "depth": 16,
+        "score": 4.834253170422773
+    }
+]
+[
+    {
+        "smiles": "C#C.C=C(C)NC(C)=O.C=C1C#C1.CC#N",
+        "depth": 13,
+        "score": 398.3842158253699
+    }
+]
+[
+    {
+        "smiles": "C=C(C)C#CC=CCl.C=C1C=C1C",
+        "depth": 12,
+        "score": 3.1996231240740247
+    }
+]
+[
+    {
+        "smiles": "C=C.C=NC.CC.CC#CN=N.CC1=C(C=N)C1.C[SH]=O",
+        "depth": 16,
+        "score": 95.02102555292805
+    }
+]
+[
+    {
+        "smiles": "C=C(C)N=C(C)O.CBr.CCC.FC1C=N1.N=C(F)S",
+        "depth": 16,
+        "score": 143.22330101241675
+    }
+]
+[
+    {
+        "smiles": "C#CC(C=C(CN)OOC)CC#CC=C",
+        "depth": 14,
+        "score": 3.3802569259140847
+    }
+]
+[
+    {
+        "smiles": "C#CC#CC1CN(C#CC(=C)F)O1",
+        "depth": 13,
+        "score": 62.26988481760372
+    }
+]
+[
+    {
+        "smiles": "C=C.C=C=C(O)N=O.C=O.CC=C(C)N.O=O",
+        "depth": 12,
+        "score": 3.656376646087651
+    }
+]
+[
+    {
+        "smiles": "C=C.C=C1C#C1.C=CC#CC=C=O.CC.CC.CCC",
+        "depth": 15,
+        "score": 393.38597407077623
+    }
+]
+[
+    {
+        "smiles": "CCC=C=C=C(C)C(C)(C)C=C=C(C)OOC(C)N",
+        "depth": 18,
+        "score": 9.908495446925972
+    }
+]
+[
+    {
+        "smiles": "C#CN.CC#N.CCC.N=O.OOC#CF",
+        "depth": 11,
+        "score": 0.11540819155744096
+    }
+]
+[
+    {
+        "smiles": "C#CC#N.C#CC(=C)C=C.C=CC(C#CC)CC.OCl",
+        "depth": 16,
+        "score": 2.936756831615268
+    }
+]
+[
+    {
+        "smiles": "C=C(N)C(=C)OC1([Yb]=CC)CN=C1C",
+        "depth": 14,
+        "score": 49.28055990008916
+    }
+]
+[
+    {
+        "smiles": "C#CC1=CC1=C(C)CF.CC.CCCOC1=CC1",
+        "depth": 17,
+        "score": 100.02879108087413
+    }
+]
+[
+    {
+        "smiles": "C=C(C)C#CN.C=COC(=C)C=C=O.C=N",
+        "depth": 13,
+        "score": 5.6649306101617
+    }
+]
+[
+    {
+        "smiles": "C#CN1OC(OOC(C)=N)=C1N.C=C(N)O",
+        "depth": 15,
+        "score": 1.1557605263190647
+    }
+]
+[
+    {
+        "smiles": "C#CCC(C)(O)C[Ti]SN=C.CCl",
+        "depth": 11,
+        "score": 0.37381394444193256
+    }
+]
+[
+    {
+        "smiles": "C=C1C(C#COC(=N)C#CC)=C1CC(C)C",
+        "depth": 16,
+        "score": 7.385982911279731
+    }
+]
+[
+    {
+        "smiles": "C#C.C#CC(N=CC(C)=[SH]C=C)=C(O)C=O",
+        "depth": 14,
+        "score": 8.978137932305938
+    }
+]
+[
+    {
+        "smiles": "C#CC#CC(=C)CCl.C=C=O.CC(=O)C1=CO1",
+        "depth": 15,
+        "score": 0.7456595386297874
+    }
+]
+[
+    {
+        "smiles": "C#CC(N)CC(=O)C#CC#CC.C=NC.CC#CC(C)=N",
+        "depth": 18,
+        "score": 2.084898353895164
+    }
+]
+[
+    {
+        "smiles": "C#CC.C#CC#CC(=C=C=C(C)F)CC(=C)OC.C=C",
+        "depth": 17,
+        "score": 2.6027936753207563
+    }
+]
+[
+    {
+        "smiles": "C#COC.C#[SH].C=CNN(C)C#N.CC#N.OF",
+        "depth": 13,
+        "score": 6.744918643826402
+    }
+]
+[
+    {
+        "smiles": "C#CCC(C#C)=CC.C=C=C=CC.C=CC(C)C.C=S",
+        "depth": 16,
+        "score": 4.439451727524175
+    }
+]
+[
+    {
+        "smiles": "C#C.C=O.C=[SH]1(C)C(=O)C1=[SH]O",
+        "depth": 10,
+        "score": 0.8769743611478449
+    }
+]
+[
+    {
+        "smiles": "C#CCC=C(C)C(=O)CNC=C.C=C=CS",
+        "depth": 14,
+        "score": 5.484287117046581
+    }
+]
+[
+    {
+        "smiles": "C#CNS1(C)#CC1C1OCCC1=C.C=O.C=O",
+        "depth": 16,
+        "score": 391.4744750696459
+    }
+]
+[
+    {
+        "smiles": "C=C(C)C#CC=C=C=C(C)C#CCC.C=S.O=C=CF",
+        "depth": 17,
+        "score": 1.7538549517077426
+    }
+]
+[
+    {
+        "smiles": "C#CC.C=N.CC#CC(=O)CC.COC",
+        "depth": 11,
+        "score": 0.0319477437636857
+    }
+]
+[
+    {
+        "smiles": "CC(N)S.COC(C#CC=C=C=N)CC#CS",
+        "depth": 15,
+        "score": 0.02301138583690962
+    }
+]
+[
+    {
+        "smiles": "C#S(=C=N)NC.CC#CCC",
+        "depth": 9,
+        "score": 0.4967513945272589
+    }
+]
+[
+    {
+        "smiles": "C=C=C(CN)ON.C=CCC#N.CC(C)=O.CCl",
+        "depth": 14,
+        "score": 2.8552242495364726
+    }
+]
+[
+    {
+        "smiles": "C#CC1C#CNC1.CC(C)C.CC(F)=C=N.N=CO",
+        "depth": 16,
+        "score": 181.60346113707456
+    }
+]
+[
+    {
+        "smiles": "C#CC#C.C=C1N=C1C=N(C)=O.CC#CC#N.NCS",
+        "depth": 17,
+        "score": 7.4294195888644055
+    }
+]
+[
+    {
+        "smiles": "C#CN.C=C=C.COCC(F)C(C)=CC#CO",
+        "depth": 14,
+        "score": 3.670183512953354
+    }
+]
+[
+    {
+        "smiles": "C#CC(=C)C1(C#CC)C#CC=C=C1C",
+        "depth": 14,
+        "score": 167.96527884379898
+    }
+]
+[
+    {
+        "smiles": "C#CC.C=C(C)Cl.C=C(C)O.C=O.N#CN=C=C=C(O)F",
+        "depth": 16,
+        "score": 0.46112032246051776
+    }
+]
+[
+    {
+        "smiles": "C=C(C)OC.C=C=NC(=C)N.O=CN1NO1",
+        "depth": 14,
+        "score": 4.528831731018221
+    }
+]
+[
+    {
+        "smiles": "C#CC#CC.C#N.C=COC(C)CC(=C)NC",
+        "depth": 14,
+        "score": 3.1316974569813105
+    }
+]
+[
+    {
+        "smiles": "C#C.C=C(C#CC)C(O)CC#CC#N.C=CC.CC",
+        "depth": 15,
+        "score": 1.0794048767050919
+    }
+]
+[
+    {
+        "smiles": "C#CC=NC(C)C#N.C1=C2N=C12.C=C.CONC#N",
+        "depth": 17,
+        "score": 112.31904163195141
+    }
+]
+[
+    {
+        "smiles": "C1=CCC=1.C=C.CC#N.CF.O=C(F)CF",
+        "depth": 12,
+        "score": 118.89197632212806
+    }
+]
+[
+    {
+        "smiles": "CC#CC(=CN=C(C#CN)C#COC#N)NOC",
+        "depth": 17,
+        "score": 5.5571645695967025
+    }
+]
+[
+    {
+        "smiles": "C=C=C(C)C.CC#COC(C)(N)CN",
+        "depth": 12,
+        "score": 4.537128526407983
+    }
+]
+[
+    {
+        "smiles": "C=C(C)C.C=C(C)O.CC(C)=C=CN(=N)=O",
+        "depth": 13,
+        "score": 1.7632422344086782
+    }
+]
+[
+    {
+        "smiles": "C=C=CC.C=C[SH]1C(=C)C1=C=C(C#N)ON(C)NC",
+        "depth": 18,
+        "score": 0.41656138865350356
+    }
+]
+[
+    {
+        "smiles": "C=C(C)C#COOC(C)=C=NO.CC#N",
+        "depth": 13,
+        "score": 0.15913259558884965
+    }
+]
+[
+    {
+        "smiles": "C=C(C#CC)C(C)(C)N.CCN(OF)C(=O)CC(C)(C)C.CN",
+        "depth": 20,
+        "score": 10.749164181610643
+    }
+]
+[
+    {
+        "smiles": "C=C.CC.CC#CC(=N)C1(NC#N)N=C=CO1",
+        "depth": 15,
+        "score": 110.13409664378024
+    }
+]
+[
+    {
+        "smiles": "C#CC.C=NC.C=S(C)(C)=N.CO",
+        "depth": 9,
+        "score": 2.4173250042671884e-07
+    }
+]
+[
+    {
+        "smiles": "C#CC.C#CC(C(=C)C)C(=N)O.CC(O)C#N",
+        "depth": 14,
+        "score": 2.425903964717939
+    }
+]
+[
+    {
+        "smiles": "C#CC.C#CCS.C=C(C)N.CC(C)O.O=CC#CCl",
+        "depth": 15,
+        "score": 0.3423665836606179
+    }
+]
+[
+    {
+        "smiles": "C#S1(F)C(C)=C1ON=CCC.C=CC",
+        "depth": 13,
+        "score": 98.37437926279958
+    }
+]
+[
+    {
+        "smiles": "C#CC.C#CN=C.CC#CN1C(C)=C1CCl",
+        "depth": 14,
+        "score": 2.208009021494332
+    }
+]
+[
+    {
+        "smiles": "CC.CC(=O)C#CN=CC=O",
+        "depth": 9,
+        "score": 0.26167272022480054
+    }
+]
+[
+    {
+        "smiles": "C#CC(C)=N.C=C.C=C=NC.C=NC#N.CC#COC.NO",
+        "depth": 16,
+        "score": 0.3701875630541827
+    }
+]
+[
+    {
+        "smiles": "C#CC.C#N.C=CC1(C)C#C1",
+        "depth": 9,
+        "score": 501.37438645232425
+    }
+]
+[
+    {
+        "smiles": "C=C1CONCC(C(=C)C)=[SH]1.C=CC.NN=O",
+        "depth": 15,
+        "score": 9.578477736693241
+    }
+]
+[
+    {
+        "smiles": "C=C1COC1=O.C=O.CN(=O)=S.NCN.NO",
+        "depth": 13,
+        "score": 17.368520672261333
+    }
+]
+[
+    {
+        "smiles": "C=C(N)C#CC.CC.CC#CC.N=NCN1C#C1",
+        "depth": 15,
+        "score": 540.3680367174924
+    }
+]
+[
+    {
+        "smiles": "C=C=C.CC#CCOSC(=O)OCCl",
+        "depth": 12,
+        "score": 0.971701500350265
+    }
+]
+[
+    {
+        "smiles": "C#CC.C#CC(C)(C#C)OC(=C=NO)C#CC.CC",
+        "depth": 16,
+        "score": 4.281176764519087
+    }
+]
+[
+    {
+        "smiles": "C#CC(C)N=C=C1NC1=O.C=C.CO",
+        "depth": 12,
+        "score": 0.4410918916633249
+    }
+]
+[
+    {
+        "smiles": "CC(C)(C#N)CO.CCC#CCC",
+        "depth": 11,
+        "score": 1.1684798504677993
+    }
+]
+[
+    {
+        "smiles": "C#C.C#C.C=C.CC.CC(C)=O.COC",
+        "depth": 9,
+        "score": 3.459761146823115e-15
+    }
+]
+[
+    {
+        "smiles": "C=CC.OCC#CONO",
+        "depth": 8,
+        "score": 0.8594371581400122
+    }
+]
+[
+    {
+        "smiles": "C#CC=O.C=C=C=C(O)S1=C(C=C)O1.CF.CNN",
+        "depth": 16,
+        "score": 18.760612536642192
+    }
+]
+[
+    {
+        "smiles": "C#CO.C=C=C1C#C1.C=N.C=[Al]NC.CO",
+        "depth": 12,
+        "score": 393.53039780637926
+    }
+]
+[
+    {
+        "smiles": "C=C.C=C=O.CC#CC.N#CC(O)NC#CCl",
+        "depth": 13,
+        "score": 0.3134146231379418
+    }
+]
+[
+    {
+        "smiles": "C#CC#CNC(F)=C=C.C=S.CC.CON",
+        "depth": 12,
+        "score": 0.07270699560596741
+    }
+]
+[
+    {
+        "smiles": "C#C.C#CC=C.C=C=C1C=N1.CC#CC12OC1(C)O2.CC=N",
+        "depth": 20,
+        "score": 660.6304602234699
+    }
+]
+[
+    {
+        "smiles": "C#C.C=C(F)C1=C(C)C1=C=CCl.C=C(N)CC.C=O",
+        "depth": 16,
+        "score": 3.7618291994085675
+    }
+]
+[
+    {
+        "smiles": "C#CC(O)(C1(F)C#CC1=C)[SH]1(C#CO)=CC1=C.C#N",
+        "depth": 19,
+        "score": 260.6771298398888
+    }
+]
+[
+    {
+        "smiles": "C#CCOC.C=CC#CCC(C)=O.CC",
+        "depth": 12,
+        "score": 0.07323055802482696
+    }
+]
+[
+    {
+        "smiles": "C#CN=C=O.C=C.C=C.CC#N.CC1=CO1",
+        "depth": 12,
+        "score": 0.9722138605578315
+    }
+]
+[
+    {
+        "smiles": "C#CN(#N)F.C#CN=C.CC.CC#CC.CS",
+        "depth": 12,
+        "score": 0.20479832074567617
+    }
+]
+[
+    {
+        "smiles": "C#CC.C#CN=C=C.CC(N)=N#N.CC=O",
+        "depth": 12,
+        "score": 0.2064542992007493
+    }
+]
+[
+    {
+        "smiles": "C#N=O.C#S#COCC(C)(N)C#CO.C=C(C)C",
+        "depth": 15,
+        "score": 0.0638329636384445
+    }
+]
+[
+    {
+        "smiles": "C#CCC#C.C=C.C=C=S.CC.CC.CC=N.CO.N#N=O",
+        "depth": 14,
+        "score": 0.10091382294999628
+    }
+]
+[
+    {
+        "smiles": "C#CC.C#CCC(=O)C(O)C12OC1=C2C",
+        "depth": 15,
+        "score": 364.8748801589168
+    }
+]
+[
+    {
+        "smiles": "C=C=COC.CC(=N)N(C)(=O)C#SN.CC=CS.CO",
+        "depth": 16,
+        "score": 8.440142923412175
+    }
+]
+[
+    {
+        "smiles": "C=C1C=C=CC1.C=C=C(CN)SSBr",
+        "depth": 13,
+        "score": 79.90037648821344
+    }
+]
+[
+    {
+        "smiles": "C=CN.C=N(=O)C#COC.CBr.CF",
+        "depth": 10,
+        "score": 0.28602445260798187
+    }
+]
+[
+    {
+        "smiles": "C=CC#CC(C)=C=C1C#C1.C=[SH]C1=CC1.CS",
+        "depth": 16,
+        "score": 486.97070656561834
+    }
+]
+[
+    {
+        "smiles": "C#CC.C#CCNC.C=C.CC#COCC(C)C#N",
+        "depth": 15,
+        "score": 0.6114907978751166
+    }
+]
+[
+    {
+        "smiles": "C=O.CC#CC(=O)O.CC#CON=O.CO",
+        "depth": 12,
+        "score": 0.5459625733701358
+    }
+]
+[
+    {
+        "smiles": "C=C(C#CCC)OC.C=C=NC=N",
+        "depth": 11,
+        "score": 1.5046818516543032
+    }
+]
+[
+    {
+        "smiles": "C#C.C=N(=O)OC=C=N.CCOC.N#CN",
+        "depth": 12,
+        "score": 0.912801114313019
+    }
+]
+[
+    {
+        "smiles": "C#CC1(CNCC)NN1S(N)(O)C(=C)Br.C#CC=C",
+        "depth": 18,
+        "score": 424.2200236713754
+    }
+]
+[
+    {
+        "smiles": "C#COC.C=NO.CC=O.CN.CN=C=CN",
+        "depth": 12,
+        "score": 0.23744109722111717
+    }
+]
+[
+    {
+        "smiles": "C#CC(C=C)(OCC=C)C(C)N=NC.C=NF",
+        "depth": 15,
+        "score": 21.066359321110685
+    }
+]
+[
+    {
+        "smiles": "C#CON=C=C.CC1=CCC#C1.N#CC[SH]=O",
+        "depth": 15,
+        "score": 176.34296151597735
+    }
+]
+[
+    {
+        "smiles": "C#C.C#CC#CC(=C)C.C#CCC(=C)C",
+        "depth": 12,
+        "score": 3.251626494568594
+    }
+]
+[
+    {
+        "smiles": "C#CC#CC.C#N.C=POCl.CC#CCC(=N)Cl",
+        "depth": 14,
+        "score": 0.39736367205153295
+    }
+]
+[
+    {
+        "smiles": "C=C1C#CC(C2C#C2)=NC=C(C)O1.C=O.C=O",
+        "depth": 16,
+        "score": 579.08733049898
+    }
+]
+[
+    {
+        "smiles": "CF",
+        "depth": 1,
+        "score": 2.0597440914356352e-29
+    }
+]
+[
+    {
+        "smiles": "C#CC.C#N.C=C=N.CC#CC#COC",
+        "depth": 11,
+        "score": 0.4270542394745481
+    }
+]
+[
+    {
+        "smiles": "C#CCO.C=C=O.CC#CCN=C=C1NO1",
+        "depth": 14,
+        "score": 0.06990092241581039
+    }
+]
+[
+    {
+        "smiles": "C1#CC1.C=CC.CO.NC(Cl)=C=C1C=C1.O=O",
+        "depth": 14,
+        "score": 493.6478223198353
+    }
+]
