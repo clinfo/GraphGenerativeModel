@@ -141,8 +141,8 @@ We perform a weighted random choice for the level to perform the expansion on ba
 The higher the value, the more "random" the selection will be. Lower values will result in a values that are 
 more skewed towards deeper levels. To achieve an opposite effect, use a negative value:
 
-As an example, assuming our tree currently have a depth/level of 5. The following "breath_to_depth_ration" values might
-produce the following possibilities.
+As an example, assuming our tree currently has a depth/level of 5. The following "breath_to_depth_ration" values might
+produce similar probabilities:
 
 breath_to_depth_ration | level1 % | level2 % | level3 % | level4 % | level5 % |
 | -------------------- | -------- | -------- | -------- | -------- | -------- |
@@ -155,7 +155,7 @@ breath_to_depth_ration | level1 % | level2 % | level3 % | level4 % | level5 % |
 | -10                  | 0.219435 | 0.219109 | 0.204048 | 0.184172 | 0.173234 |
 | -100000              | 0.200854 | 0.200463 | 0.200139 | 0.200045 | 0.198496 |
 
-We recommend using low, positive values, since lower level molecules tend to have lower energy values.
+We recommend using low, positive values.
 
 ##### Step 2
 Once a level is selected, we perform a weighted random choice based on the fitness of each node in the level.
