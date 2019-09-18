@@ -2,12 +2,11 @@ import logging
 import random
 
 import numpy as np
-from rdkit import Chem
-from rdkit.Chem import AllChem
 from rdkit.Chem.rdchem import BondType
 
 from lib.data_providers import MoleculeLoader
 from lib.data_structures import Tree, Compound
+from lib.energy_calculators import *
 
 
 class MonteCarloTreeSearch(object):
@@ -23,28 +22,22 @@ class MonteCarloTreeSearch(object):
     OUTPUT_DEEPEST = "deepest"
     OUTPUT_PER_LEVEL = "per_level"
 
-    """Available Force Fields"""
-    FORCE_FIELD_MMFF = "mmff"
-    FORCE_FIELD_UFF = "uff"
-
     def __init__(
-            self, data_provider: MoleculeLoader, force_field_iterations,
-            minimum_depth, output_type, force_field, breath_to_depth_ration=0
+            self, data_provider: MoleculeLoader, minimum_depth, output_type,
+            energy_calculator: EnergyCalculatorPrototype, breath_to_depth_ration=0
     ):
         """
         :param data_provider: MoleculeLoader
-        :param force_field_iterations: from the input parameters (see README.md for details)
         :param minimum_depth: from the input parameters (see README.md for details)
         :param output_type: from the input parameters (see README.md for details)
-        :param force_field: from the input parameters (see README.md for details)
+        :param energy_calculator: from the input parameters (see README.md for details)
         :param breath_to_depth_ration: from the input parameters (see README.md for details)
         """
         self.data_provider = data_provider
-        self.force_field_iterations = force_field_iterations
         self.minimum_depth = minimum_depth
         self.output_type = output_type
         self.breath_to_depth_ration = breath_to_depth_ration
-        self.force_field = force_field
+        self.energy_calculator = energy_calculator
 
     def start(self, molecules_to_process=10, iterations_per_molecule=100):
         """
@@ -206,14 +199,9 @@ class MonteCarloTreeSearch(object):
         """
         try:
             molecule = compound.clean(preserve=True)
-            molecule = Chem.MolFromSmiles(Chem.MolToSmiles(molecule))
-            molecule.UpdatePropertyCache()
+            smiles = Chem.MolToSmiles(molecule)
+            energy = self.energy_calculator.calculate(smiles)
 
-            force_field = self.get_force_field(molecule)
-            force_field.Initialize()
-            force_field.Minimize(maxIts=self.force_field_iterations)
-
-            energy = force_field.CalcEnergy()
             logging.debug(
                 compound.get_smiles()
                 + " : " + Chem.MolToSmiles(molecule)
@@ -225,26 +213,6 @@ class MonteCarloTreeSearch(object):
         except (ValueError, RuntimeError, AttributeError) as e:
             logging.debug(compound.get_smiles() + " : " + str(e))
             return np.Infinity
-
-    def get_force_field(self, molecule):
-        """
-        Force Field Factory
-        :param molecule: rdKit.Mol
-        :return: AllChem.ForceField
-        :raises: ValueError (unknown force field)
-        """
-
-        Chem.AddHs(molecule)
-        AllChem.EmbedMolecule(molecule, randomSeed=0)
-
-        if self.force_field == self.FORCE_FIELD_MMFF:
-            properties = AllChem.MMFFGetMoleculeProperties(molecule)
-            return AllChem.MMFFGetMoleculeForceField(molecule, properties)
-
-        if self.force_field == self.FORCE_FIELD_UFF:
-            return AllChem.UFFGetMoleculeForceField(molecule)
-
-        raise ValueError("Unknown force field requested: {}".format(self.force_field))
 
     def prepare_output(self, tree: Tree):
         """

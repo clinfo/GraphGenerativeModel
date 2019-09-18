@@ -40,11 +40,10 @@ python run.py -h
     usage: run.py [-h] --dataset DATASET [--generate GENERATE]
               [--threshold THRESHOLD]
               [--monte_carlo_iterations MONTE_CARLO_ITERATIONS]
-              [--force_field_iterations FORCE_FIELD_ITERATIONS]
               [--minimum_output_depth MINIMUM_OUTPUT_DEPTH] [--draw DRAW]
               [--logging LOGGING] [--output_type OUTPUT_TYPE]
               [--breath_to_depth_ration BREATH_TO_DEPTH_RATION]
-              [--force_field FORCE_FIELD]
+              [--energy_calculator ENERGY_CALCULATOR]
 
     arguments:
         -h, --help                  Show this help message and exit
@@ -52,13 +51,12 @@ python run.py -h
         --generate                  How many molecules to generate?
         --threshold                 Minimum threshold for potential bonds
         --monte_carlo_iterations    How many times to iterate over the tree
-        --force_field_iterations    Max iterations when minimizing energy
         --minimum_output_depth      The output needs at least this many bonds
         --draw                      If specified, will draw the molecules to this folder
         --logging                   Logging level. Smaller number means more logs
         --output_type               Options: fittest | deepest | per_level
         --breath_to_depth_ration    Optimize for exploitation or exploration
-        --force_field               How to calculate the energy. Options: uff | mmff
+        --energy_calculator         How to calculate the energy. Options: rdkit_uff | rdkit_mmff | babel_uff | babel_mmff94 | babel_mmff94s | babel_gaff | babel_ghemical
 
 ```
 
@@ -95,18 +93,27 @@ Note: this parameter influences execution time the most
 
 ### force_field
 The energy of the molecule is used as reward for the algorithm. The smaller the energy, the better.
-To calculate the energy we need to create a force field. There are 2 force field implementations
-you can choose from:
+To calculate the energy we need to create a force field, and there are 2 types of implementation for 
+supported force fields: rdkit force fields and open babel force fields.
 
-- `uff` - The [Universal Force Field](https://doi.org/10.1021/ja00051a040) is an all atom potential which considers 
-only the element, the hybridization and the connectivity 
-- `mmff` - The [Merck Molecular Force Field](https://doi.org/10.1002/(SICI)1096-987X(199604)17:5/6<490::AID-JCC1>3.0.CO;2-P) 
-is similar to the [MM3 Force Field](https://doi.org/10.1021/ja00205a001)
+
+7 options are available for energy calculations:
+
+- `rdkit_uff` - The [Universal Force Field](https://doi.org/10.1021/ja00051a040) is an all atom potential which considers 
+only the element, the hybridization and the connectivity (implemented in rdKit)
+- `rdkit_mmff` - The [Merck Molecular Force Field](https://doi.org/10.1002/(SICI)1096-987X(199604)17:5/6<490::AID-JCC1>3.0.CO;2-P) 
+is similar to the [MM3 Force Field](https://doi.org/10.1021/ja00205a001) (implemented in rdKit)
+- `babel_uff` - The same [Universal Force Field](https://doi.org/10.1021/ja00051a040) (implemented in OpenBabel)
+- `babel_mmff94` - The same [Merck Molecular Force Field](https://doi.org/10.1002/(SICI)1096-987X(199604)17:5/6<490::AID-JCC1>3.0.CO;2-P)
+(implemented in OpenBabel)
+- `babel_mmff94s` - [MMFF94S](https://doi.org/10.1002/(SICI)1096-987X(199905)20:7%3C720::AID-JCC7%3E3.0.CO;2-X) is 
+a "static" variant of the MMFF force field. (implemented in OpenBabel)
+- `babel_gaff` - The [Generalized Amber Force Field](https://doi.org/10.1002/jcc.20035) (implemented in OpenBabel)
+- `babel_ghemical` - The [Ghemical Force Field](https://open-babel.readthedocs.io/en/latest/Forcefields/ghemical.html) (implemented in OpenBabel)
+
+
+
  
-### force_field_iterations
-Energy minimization is an optimization problem in itself. The molecule structures are solid, so it is
-safe to use very large values here. The minimization should converge fast.
-
 ### output_type
 We implemented 3 different ways to select the output/best solution:
 
