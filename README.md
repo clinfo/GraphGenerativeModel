@@ -138,11 +138,24 @@ The best working solution we found is a two-factor pseudo-random one.
 
 ##### Step 1
 We perform a weighted random choice for the level to perform the expansion on based on the "breath_to_depth_ration".
-When the value is 0, each level has an equal chance to be selected, a positive value will favour deeper levels and 
-a negative one will prefer higher ones. From a certain point onward, to achieve a significant difference the value 
-needs to increase exponentially. 
+The higher the value, the more "random" the selection will be. Lower values will result in a values that are 
+more skewed towards deeper levels. To achieve an opposite effect, use a negative value:
 
-We recommend using a high value, in the order of 10,000+.  
+As an example, assuming our tree currently have a depth/level of 5. The following "breath_to_depth_ration" values might
+produce the following possibilities.
+
+breath_to_depth_ration | level1 % | level2 % | level3 % | level4 % | level5 % |
+| -------------------- | -------- | -------- | -------- | -------- | -------- |
+| 0.5                  | 0.000047 | 0.000062 | 0.003793 | 0.360444 | 0.635651 |
+| 1                    | 0.048671 | 0.087203 | 0.160737 | 0.291216 | 0.412170 |
+| 10                   | 0.106983 | 0.171757 | 0.180209 | 0.217732 | 0.323316 |
+| 100                  | 0.188933 | 0.192691 | 0.201109 | 0.208459 | 0.208805 |
+| -0.1                 | 0.993638 | 0.006341 | 0.000014 | 0.000006 | 0        |
+| -1                   | 0.410542 | 0.334045 | 0.138279 | 0.111738 | 0.005394 |
+| -10                  | 0.219435 | 0.219109 | 0.204048 | 0.184172 | 0.173234 |
+| -100000              | 0.200854 | 0.200463 | 0.200139 | 0.200045 | 0.198496 |
+
+We recommend using low, positive values, since lower level molecules tend to have lower energy values.
 
 ##### Step 2
 Once a level is selected, we perform a weighted random choice based on the fitness of each node in the level.

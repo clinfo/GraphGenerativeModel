@@ -3,6 +3,7 @@ import time
 
 from rdkit import Chem
 from rdkit.Chem import Draw
+import logging
 
 
 class Sketcher(object):
@@ -49,6 +50,10 @@ class Sketcher(object):
         """
         if self.enabled:
             molecule = Chem.MolFromSmiles(smiles)
-            filename = self.get_file_name()
 
+            if molecule is None:
+                logging.debug("Cannot draw molecule: {}".format(smiles))
+                return
+
+            filename = self.get_file_name()
             Draw.MolToFile(molecule, filename)

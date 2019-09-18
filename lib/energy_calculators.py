@@ -56,7 +56,7 @@ class RdKitEnergyCalculator(EnergyCalculatorPrototype):
 class BabelEnergyCalculator(EnergyCalculatorPrototype):
 
     FORCE_FIELD_UFF = "uff"
-    FORCE_FIELD_MMFF96 = "mmff96"
+    FORCE_FIELD_MMFF96 = "mmff94"
     FORCE_FIELD_MMFF94S = "mmff94s"
     FORCE_FIELD_GAFF = "gaff"
     FORCE_FIELD_GHEMICAL = "ghemical"

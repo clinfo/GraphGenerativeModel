@@ -90,10 +90,11 @@ class MonteCarloTreeSearch(object):
         levels = list(nodes_per_level.keys())
         ratio = abs(self.breath_to_depth_ration)
 
-        probabilities = np.random.normal(0, ratio, len(levels))
-        probabilities += abs(np.min(probabilities)) + 1
-        probabilities /= np.sum(probabilities)
-        probabilities.sort()
+        if ratio == 0:
+            ratio = 1000000
+
+        probabilities = np.random.dirichlet(np.ones(len(levels)) * ratio, 1)
+        probabilities = np.sort(probabilities[0])
 
         if self.breath_to_depth_ration < 0:
             probabilities = np.flip(probabilities)
@@ -200,7 +201,13 @@ class MonteCarloTreeSearch(object):
         try:
             molecule = compound.clean(preserve=True)
             smiles = Chem.MolToSmiles(molecule)
+
+            if Chem.MolFromSmiles(smiles) is None:
+                raise ValueError("Invalid molecule: {}".format(smiles))
+
             energy = self.energy_calculator.calculate(smiles)
+            if np.isnan(energy):
+                raise ValueError("NaN energy encountered: {}".format(smiles))
 
             logging.debug(
                 compound.get_smiles()

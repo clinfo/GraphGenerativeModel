@@ -26,7 +26,7 @@ parser.add_argument(
     help="Options: fittest | deepest | per_level"
 )
 parser.add_argument(
-    "--breath_to_depth_ration", type=float, default=10000, help="Optimize for exploitation or exploration"
+    "--breath_to_depth_ration", type=float, default=1, help="Optimize for exploitation or exploration"
 )
 parser.add_argument(
     '--energy_calculator', type=str, default="babel_uff", help="How to calculate the energy. Options: "
