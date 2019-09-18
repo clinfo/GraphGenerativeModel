@@ -5,9 +5,9 @@ import logging
 from rdkit import RDLogger
 
 from lib.data_providers import MoleculeLoader
+from lib.energy_calculators import EnergyCalculatorFactory
 from lib.helpers import Sketcher
 from lib.models import MonteCarloTreeSearch
-from lib.energy_calculators import EnergyCalculatorFactory
 
 RDLogger.logger().setLevel(RDLogger.CRITICAL)
 
