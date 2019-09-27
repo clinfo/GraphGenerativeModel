@@ -26,7 +26,7 @@ parser.add_argument(
     help="Options: fittest | deepest | per_level"
 )
 parser.add_argument(
-    "--breath_to_depth_ration", type=float, default=1, help="Optimize for exploitation or exploration"
+    "--breath_to_depth_ratio", type=float, default=1, help="Optimize for exploitation or exploration"
 )
 parser.add_argument(
     '--energy_calculator', type=str, default="babel_uff", help="How to calculate the energy. Options: "
@@ -43,7 +43,7 @@ model = MonteCarloTreeSearch(
     energy_calculator=energy_calculator,
     minimum_depth=args.minimum_output_depth,
     output_type=args.output_type,
-    breath_to_depth_ration=args.breath_to_depth_ration,
+    breath_to_depth_ratio=args.breath_to_depth_ratio,
 )
 
 sketcher = Sketcher()

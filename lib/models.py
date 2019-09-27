@@ -24,19 +24,19 @@ class MonteCarloTreeSearch(object):
 
     def __init__(
             self, data_provider: MoleculeLoader, minimum_depth, output_type,
-            energy_calculator: EnergyCalculatorPrototype, breath_to_depth_ration=0
+            energy_calculator: EnergyCalculatorPrototype, breath_to_depth_ratio=0
     ):
         """
         :param data_provider: MoleculeLoader
         :param minimum_depth: from the input parameters (see README.md for details)
         :param output_type: from the input parameters (see README.md for details)
         :param energy_calculator: from the input parameters (see README.md for details)
-        :param breath_to_depth_ration: from the input parameters (see README.md for details)
+        :param breath_to_depth_ratio: from the input parameters (see README.md for details)
         """
         self.data_provider = data_provider
         self.minimum_depth = minimum_depth
         self.output_type = output_type
-        self.breath_to_depth_ration = breath_to_depth_ration
+        self.breath_to_depth_ratio = breath_to_depth_ratio
         self.energy_calculator = energy_calculator
 
     def start(self, molecules_to_process=10, iterations_per_molecule=100):
@@ -82,13 +82,13 @@ class MonteCarloTreeSearch(object):
 
     def select(self, tree: Tree):
         """
-        The selection phase. See README.md for details. (in details on breath_to_depth_ration)
+        The selection phase. See README.md for details. (in details on breath_to_depth_ratio)
         :param tree: Tree
         :return: Tree.Node
         """
         nodes_per_level = tree.group()
         levels = list(nodes_per_level.keys())
-        ratio = abs(self.breath_to_depth_ration)
+        ratio = abs(self.breath_to_depth_ratio)
 
         if ratio == 0:
             ratio = 1000000
@@ -96,7 +96,7 @@ class MonteCarloTreeSearch(object):
         probabilities = np.random.dirichlet(np.ones(len(levels)) * ratio, 1)
         probabilities = np.sort(probabilities[0])
 
-        if self.breath_to_depth_ration < 0:
+        if self.breath_to_depth_ratio < 0:
             probabilities = np.flip(probabilities)
 
         selected_level = np.random.choice(levels, 1, p=probabilities)[0]
