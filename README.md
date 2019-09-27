@@ -21,6 +21,7 @@ conda activate graph_mcts
 Relevant files:
 - `lib/data_providers.py` - Loads, prepares and servers the molecules from the input .jbl files
 - `lib/data_structures.py` - Data models and resources for compounds, nodes and trees
+- `lib/energy_calculators.py` - Energy calculation/minimization tools
 - `lib/helpers.py` - Helper classes (ie: drawing molecules)
 - `lib/models.py` - Monte Carlo Tree Search implementation
 - `environment.yml` - Requirements and dependencies
@@ -117,7 +118,7 @@ a "static" variant of the MMFF force field. (implemented in OpenBabel)
 ### output_type
 We implemented 3 different ways to select the output/best solution:
 
-- **fittest** - Will output the molecule with the smallest energy. But note, smaller molecules then to be 
+- **fittest** - Will output the molecule with the smallest energy. But note, smaller molecules tend to be 
 more stable and have smaller energy, thus this approach tends to output only a C-C molecule or something similar. 
 Always use this option along with the "minimum_output_depth" parameter. 
 
