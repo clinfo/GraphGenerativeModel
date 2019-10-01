@@ -166,3 +166,9 @@ The value of this parameter is an integer (use increments of 10). When the value
 - 10 - everything is usually logged, including energy calculations and exceptions
 - 20 - only the molecules output and its energy is logged
 - 30+ - only the result is logged
+
+### example
+
+```
+python -u run.py --dataset=data/gen.multi.test.jbl --generate=10 --monte_carlo_iterations=1000 --threshold=0.10 --logging=50 --minimum_output_depth=20 --output_type=per_level --breath_to_depth_ratio=0.5 --energy_calculator=rdkit_uff --draw=test_rduff/
+```
