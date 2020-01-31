@@ -246,18 +246,16 @@ class MonteCarloTreeSearch:
 
             return self.format_output(output)
 
+        output = tree.get_fittest_per_level()
+        if len(output) == 0:
+            logging.info("No molecules reach the minimum depth")
+            return None
+
         if self.output_type == self.OUTPUT_DEEPEST:
-            max_depth = tree.get_depth()
-            output = None
-
-            while output is None:
-                output = tree.get_fittest()
-                max_depth -= 1
-
-            return self.format_output(output)
+            deepest_level = max(output.keys())
+            return self.format_output(output[deepest_level])
 
         if self.output_type == self.OUTPUT_PER_LEVEL:
-            output = tree.get_fittest_per_level()
             return self.format_output(list(output.values()))
 
         raise ValueError("Unknown output type: {}".format(self.output_type))

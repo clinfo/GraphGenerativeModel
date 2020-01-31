@@ -3,9 +3,9 @@
     "generate": 10,
 
     "threshold": 0.12,
-    "monte_carlo_iterations": 500,
+    "monte_carlo_iterations": 1000,
     "minimum_output_depth": 20,
-    "output_type": "fittest",
+    "output_type": "per_level",
     "breath_to_depth_ratio": 0.5,
 
     "reward_calculator": "energy_babel_mmff",
