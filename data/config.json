@@ -3,7 +3,7 @@
     "generate": 10,
 
     "threshold": 0.12,
-    "monte_carlo_iterations": 1000,
+    "monte_carlo_iterations": 500,
     "minimum_output_depth": 20,
     "output_type": "fittest",
     "breath_to_depth_ratio": 0.5,
@@ -12,5 +12,5 @@
     "filters": ["positive_reward", "molecular_weight"],
 
     "draw": "test/",
-    "logging": 10
+    "logging": 50
 }

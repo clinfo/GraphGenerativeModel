@@ -7,21 +7,21 @@ from rdkit.Chem.Descriptors import ExactMolWt
 class AbstractFilter(metaclass=ABCMeta):
 
     @abstractmethod
-    def apply(self, smiles: str, reward: float) -> bool:
+    def apply(self, mol: Chem.Mol, reward: float) -> bool:
         raise NotImplementedError
 
 
 class PositiveRewardFilter(AbstractFilter):
 
-    def apply(self, smiles: str, reward: float) -> bool:
+    def apply(self, mol: Chem.Mol, reward: float) -> bool:
         return reward > 0
 
 
 class MolecularWeightFilter(AbstractFilter):
 
-    def apply(self, smiles: str, reward: float) -> bool:
-        molecular_weight = ExactMolWt(Chem.MolFromSmiles(smiles))
-        return 300 < molecular_weight < 500
+    def apply(self, mol: Chem.Mol, reward: float) -> bool:
+        Chem.SanitizeMol(mol)
+        return 300 < ExactMolWt(mol) < 500
 
 
 class FilterFactory:

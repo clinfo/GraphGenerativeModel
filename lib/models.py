@@ -175,8 +175,10 @@ class MonteCarloTreeSearch:
         """
         logging.debug("Simulating...")
         node.score = self.calculate_reward(node.compound)
-        node.valid = node.score <= np.Infinity and node.score != 0 and node.depth >= self.minimum_depth and all(
-            _filter.apply(node.compound.get_smiles(), node.score) for _filter in self.filters
+
+        molecule = node.compound.clean(preserve=True)
+        node.valid = node.score < np.Infinity and node.score != 0 and node.depth >= self.minimum_depth and all(
+            _filter.apply(molecule, node.score) for _filter in self.filters
         )
 
         return node.score
@@ -211,6 +213,7 @@ class MonteCarloTreeSearch:
             molecule = compound.clean(preserve=True)
             smiles = Chem.MolToSmiles(molecule)
 
+            Chem.SanitizeMol(molecule)
             if Chem.MolFromSmiles(smiles) is None:
                 raise ValueError("Invalid molecule: {}".format(smiles))
 
