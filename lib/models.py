@@ -210,7 +210,7 @@ class MonteCarloTreeSearch:
             if Chem.MolFromSmiles(smiles) is None:
                 raise ValueError("Invalid molecule: {}".format(smiles))
 
-            reward = self.calculator.calculate(smiles)
+            reward = self.calculator.calculate(molecule)
             if not all(filter_.apply(smiles, reward) for filter_ in self.filters):
                 raise ValueError("This molecule failed to pass some filters: {}".format(smiles))
 

@@ -329,6 +329,9 @@ class Tree(object):
             if not node.is_leaf_node():
                 current_best = self.get_fittest(node, current_best, minimum_depth)
 
+        if current_best is None:
+            raise ValueError("No nodes matched the depth and score conditions")
+
         return current_best
 
     def get_fittest_per_level(self, minimum_depth=0):

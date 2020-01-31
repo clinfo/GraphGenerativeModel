@@ -4,12 +4,12 @@ import logging
 
 from rdkit import RDLogger
 
-from lib.data_providers import MoleculeLoader
 from lib.calculators import CalculatorFactory
+from lib.config import Config
+from lib.data_providers import MoleculeLoader
 from lib.filters import FilterFactory
 from lib.helpers import Sketcher
 from lib.models import MonteCarloTreeSearch
-from lib.config import Config
 
 RDLogger.logger().setLevel(RDLogger.CRITICAL)
 
