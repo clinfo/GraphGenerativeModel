@@ -42,8 +42,8 @@ class RdKitEnergyCalculator(AbstractEnergyCalculator):
     VALID_FORCE_FIELDS = [FORCE_FIELD_UFF, FORCE_FIELD_MMFF]
 
     def calculate(self, mol: Chem.Mol) -> float:
-        mol = Chem.Mol(mol)
-        mol.UpdatePropertyCache()
+        mol = Chem.MolFromSmiles(Chem.MolToSmiles(mol))
+        Chem.GetSymmSSSR(mol)
 
         force_field = self.get_force_field(mol)
         force_field.Initialize()
@@ -88,7 +88,7 @@ class BabelEnergyCalculator(AbstractEnergyCalculator):
 class LogpCalculator(AbstractCalculator):
 
     def calculate(self, mol: Chem.Mol) -> float:
-        return MolLogP(mol)
+        return max(MolLogP(mol) - 5, 0)
 
 
 class MwCalculator(AbstractCalculator):
@@ -100,13 +100,14 @@ class MwCalculator(AbstractCalculator):
 class QedCalculator(AbstractCalculator):
 
     def calculate(self, mol: Chem.Mol) -> float:
-        return qed(mol)
+        return 1 - qed(mol)
 
 
 class SaCalculator(AbstractCalculator):
 
     def calculate(self, mol: Chem.Mol) -> float:
-        return -sascorer.calculateScore(mol)
+        Chem.GetSymmSSSR(mol)
+        return sascorer.calculateScore(mol)
 
 
 class CalculatorFactory:

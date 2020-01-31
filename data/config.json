@@ -9,8 +9,8 @@
     "breath_to_depth_ratio": 0.5,
 
     "reward_calculator": "energy_babel_mmff",
-    "filters": ["positive_reward", "molecular_weight"],
+    "filters": ["non_zero_reward", "positive_reward", "molecular_weight"],
 
-    "draw": null,
+    "draw": "test/",
     "logging": 50
 }

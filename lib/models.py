@@ -107,7 +107,7 @@ class MonteCarloTreeSearch:
         selected_level = np.random.choice(levels, 1, p=probabilities)[0]
         candidates = nodes_per_level[selected_level]
 
-        scores = np.array([node.performance / node.visits for node in candidates])
+        scores = np.array([abs(node.performance) / node.visits for node in candidates])
         score_sum = np.sum(scores)
 
         scores = 1 - scores / score_sum if score_sum > 0 and len(scores) > 1 else [1 / len(scores)] * len(scores)
@@ -177,7 +177,7 @@ class MonteCarloTreeSearch:
         node.score = self.calculate_reward(node.compound)
 
         molecule = node.compound.clean(preserve=True)
-        node.valid = node.score < np.Infinity and node.score != 0 and node.depth >= self.minimum_depth and all(
+        node.valid = node.score < np.Infinity and node.depth >= self.minimum_depth and all(
             _filter.apply(molecule, node.score) for _filter in self.filters
         )
 
@@ -216,6 +216,7 @@ class MonteCarloTreeSearch:
             if Chem.MolFromSmiles(smiles) is None:
                 raise ValueError("Invalid molecule: {}".format(smiles))
 
+            molecule.UpdatePropertyCache()
             reward = self.calculator.calculate(molecule)
             if np.isnan(reward):
                 raise ValueError("NaN reward encountered: {}".format(smiles))
