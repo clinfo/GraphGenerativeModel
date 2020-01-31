@@ -15,7 +15,7 @@ from lib.filters import AbstractFilter
 class MonteCarloTreeSearch:
 
     """
-    Bonds that are tested. During expansion, the energy of each
+    Bonds that are tested. During expansion, the reward for each
     bond type is calculated, and the lowest one is selected.
     """
     AVAILABLE_BONDS = [Chem.rdchem.BondType.SINGLE, Chem.rdchem.BondType.DOUBLE, Chem.rdchem.BondType.TRIPLE]
@@ -117,7 +117,7 @@ class MonteCarloTreeSearch:
 
     def expand(self, node: Tree.Node):
         """
-        In the expansion phase we loop over and calculate the energy of each possible bond type, then select the
+        In the expansion phase we loop over and calculate the reward for each possible bond type, then select the
         lowest one. The new molecule is then added as a child node to the input node. The bond cache in the compounds
         is also updated accordingly to reflect the changes.
 
@@ -152,12 +152,12 @@ class MonteCarloTreeSearch:
         target_bond_index = molecule.AddBond(int(source_atom), int(destination_atom), BondType.UNSPECIFIED)
         target_bond = molecule.GetBondWithIdx(target_bond_index - 1)
 
-        per_bond_energy_values = {}
+        per_bond_rewards = {}
         for bond_type in self.AVAILABLE_BONDS:
             target_bond.SetBondType(bond_type)
-            per_bond_energy_values[bond_type] = self.calculate_reward(compound)
+            per_bond_rewards[bond_type] = self.calculate_reward(compound)
 
-        target_bond.SetBondType(min(per_bond_energy_values, key=per_bond_energy_values.get))
+        target_bond.SetBondType(min(per_bond_rewards, key=per_bond_rewards.get))
         node.get_compound().remove_bond((source_atom, destination_atom))
 
         compound.remove_bond((source_atom, destination_atom))
@@ -175,6 +175,10 @@ class MonteCarloTreeSearch:
         """
         logging.debug("Simulating...")
         node.score = self.calculate_reward(node.compound)
+        node.valid = node.score <= np.Infinity and node.score != 0 and node.depth >= self.minimum_depth and all(
+            _filter.apply(node.compound.get_smiles(), node.score) for _filter in self.filters
+        )
+
         return node.score
 
     def update(self, node: Tree.Node):
@@ -197,7 +201,7 @@ class MonteCarloTreeSearch:
 
     def calculate_reward(self, compound: Compound):
         """
-        Calculate the energy of the compound based on the requested force field.
+        Calculate the reward of the compound based on the requested force field.
         If the molecule is not valid, the reward will be infinity.
 
         :param compound: Compound
@@ -211,8 +215,8 @@ class MonteCarloTreeSearch:
                 raise ValueError("Invalid molecule: {}".format(smiles))
 
             reward = self.calculator.calculate(molecule)
-            if not all(filter_.apply(smiles, reward) for filter_ in self.filters):
-                raise ValueError("This molecule failed to pass some filters: {}".format(smiles))
+            if np.isnan(reward):
+                raise ValueError("NaN reward encountered: {}".format(smiles))
 
             logging.debug("{} : {} : {:.6f}".format(compound.get_smiles(), Chem.MolToSmiles(molecule), reward))
             return reward
@@ -231,10 +235,10 @@ class MonteCarloTreeSearch:
         """
 
         if self.output_type == self.OUTPUT_FITTEST:
-            output = tree.get_fittest(minimum_depth=self.minimum_depth)
+            output = tree.get_fittest()
 
             if output is None:
-                logging.info("No molecules reaching the minimum depth")
+                logging.info("No molecules reach the minimum depth")
                 return None
 
             return self.format_output(output)
@@ -244,13 +248,13 @@ class MonteCarloTreeSearch:
             output = None
 
             while output is None:
-                output = tree.get_fittest(minimum_depth=max_depth)
+                output = tree.get_fittest()
                 max_depth -= 1
 
             return self.format_output(output)
 
         if self.output_type == self.OUTPUT_PER_LEVEL:
-            output = tree.get_fittest_per_level(minimum_depth=self.minimum_depth)
+            output = tree.get_fittest_per_level()
             return self.format_output(list(output.values()))
 
         raise ValueError("Unknown output type: {}".format(self.output_type))
