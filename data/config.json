@@ -1,0 +1,16 @@
+{
+    "dataset": "data/gen.multi.test.jbl",
+    "generate": 10,
+
+    "threshold": 0.15,
+    "monte_carlo_iterations": 1000,
+    "minimum_output_depth": 20,
+    "output_type": "fittest",
+    "breath_to_depth_ratio": 1.0,
+
+    "reward_calculator": "energy_babel_mmff",
+    "filters": ["non_nan_reward", "positive_reward", "molecular_weight"],
+
+    "draw": "test/",
+    "logging": 50
+}

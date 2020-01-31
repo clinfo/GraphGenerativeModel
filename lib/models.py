@@ -1,15 +1,18 @@
 import logging
 import random
+from typing import List
 
 import numpy as np
+from rdkit import Chem
 from rdkit.Chem.rdchem import BondType
 
+from lib.calculators import AbstractCalculator
 from lib.data_providers import MoleculeLoader
 from lib.data_structures import Tree, Compound
-from lib.energy_calculators import *
+from lib.filters import AbstractFilter
 
 
-class MonteCarloTreeSearch(object):
+class MonteCarloTreeSearch:
 
     """
     Bonds that are tested. During expansion, the energy of each
@@ -24,20 +27,22 @@ class MonteCarloTreeSearch(object):
 
     def __init__(
             self, data_provider: MoleculeLoader, minimum_depth, output_type,
-            energy_calculator: EnergyCalculatorPrototype, breath_to_depth_ratio=0
+            calculator: AbstractCalculator, filters: List[AbstractFilter], breath_to_depth_ratio=0
     ):
         """
         :param data_provider: MoleculeLoader
         :param minimum_depth: from the input parameters (see README.md for details)
         :param output_type: from the input parameters (see README.md for details)
-        :param energy_calculator: from the input parameters (see README.md for details)
+        :param calculator: from the input parameters (see README.md for details)
+        :param filters: from the input parameters (see README.md for details)
         :param breath_to_depth_ratio: from the input parameters (see README.md for details)
         """
         self.data_provider = data_provider
         self.minimum_depth = minimum_depth
         self.output_type = output_type
         self.breath_to_depth_ratio = breath_to_depth_ratio
-        self.energy_calculator = energy_calculator
+        self.calculator = calculator
+        self.filters = filters
 
     def start(self, molecules_to_process=10, iterations_per_molecule=100):
         """
@@ -205,20 +210,15 @@ class MonteCarloTreeSearch(object):
             if Chem.MolFromSmiles(smiles) is None:
                 raise ValueError("Invalid molecule: {}".format(smiles))
 
-            energy = self.energy_calculator.calculate(smiles)
-            if np.isnan(energy):
-                raise ValueError("NaN energy encountered: {}".format(smiles))
+            reward = self.calculator.calculate(smiles)
+            if not all(filter_.apply(smiles, reward) for filter_ in self.filters):
+                raise ValueError("This molecule failed to pass some filters: {}".format(smiles))
 
-            logging.debug(
-                compound.get_smiles()
-                + " : " + Chem.MolToSmiles(molecule)
-                + " : " + "{0:.20f}".format(energy)
-            )
-
-            return abs(energy)
+            logging.debug("{} : {} : {:.6f}".format(compound.get_smiles(), Chem.MolToSmiles(molecule), reward))
+            return reward
 
         except (ValueError, RuntimeError, AttributeError) as e:
-            logging.debug(compound.get_smiles() + " : " + str(e))
+            logging.debug("[INVALID REWARD]: {} - {}".format(compound.get_smiles(), str(e)))
             return np.Infinity
 
     def prepare_output(self, tree: Tree):

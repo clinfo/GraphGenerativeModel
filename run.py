@@ -5,52 +5,39 @@ import logging
 from rdkit import RDLogger
 
 from lib.data_providers import MoleculeLoader
-from lib.energy_calculators import EnergyCalculatorFactory
+from lib.calculators import CalculatorFactory
+from lib.filters import FilterFactory
 from lib.helpers import Sketcher
 from lib.models import MonteCarloTreeSearch
+from lib.config import Config
 
 RDLogger.logger().setLevel(RDLogger.CRITICAL)
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset', type=str, required=True, help="Path to the input data")
-parser.add_argument('--generate', type=int, default=10, help="How many molecules to generate?")
-parser.add_argument('--threshold', type=float, default=0.1, help="Minimum threshold for potential bonds")
-parser.add_argument('--monte_carlo_iterations', type=int, default=1000, help="How many times to iterate over the tree")
-parser.add_argument('--minimum_output_depth', type=int, default=20, help="The output needs at least this many bonds")
-parser.add_argument('--draw', type=str, required=False, help="If specified, will draw the molecules to this folder")
-parser.add_argument(
-    '--logging', type=int, default=logging.WARNING, help="Logging level. Smaller number means more logs"
-)
-parser.add_argument(
-    "--output_type", type=str, default=MonteCarloTreeSearch.OUTPUT_FITTEST,
-    help="Options: fittest | deepest | per_level"
-)
-parser.add_argument(
-    "--breath_to_depth_ratio", type=float, default=1, help="Optimize for exploitation or exploration"
-)
-parser.add_argument(
-    '--energy_calculator', type=str, default="babel_uff", help="How to calculate the energy. Options: "
-    + "rdkit_uff | rdkit_mmff | babel_uff | babel_mmff94 | babel_mmff94s | babel_gaff | babel_ghemical"
-)
+parser.add_argument('config', type=str)
 args = parser.parse_args()
 
-logging.basicConfig(format="%(message)s", level=args.logging)
-molecule_loader = MoleculeLoader(file_path=args.dataset, threshold=args.threshold)
-energy_calculator = EnergyCalculatorFactory.get(args.energy_calculator)
+config = Config.load(args.config)
+
+logging.basicConfig(format="%(message)s", level=config.logging)
+molecule_loader = MoleculeLoader(file_path=config.dataset, threshold=config.threshold)
+reward_calculator = CalculatorFactory.create(config.reward_calculator)
+filters = [FilterFactory.create(filter_) for filter_ in config.filters]
 
 model = MonteCarloTreeSearch(
     data_provider=molecule_loader,
-    energy_calculator=energy_calculator,
-    minimum_depth=args.minimum_output_depth,
-    output_type=args.output_type,
-    breath_to_depth_ratio=args.breath_to_depth_ratio,
+    calculator=reward_calculator,
+    filters=filters,
+    minimum_depth=config.minimum_output_depth,
+    output_type=config.output_type,
+    breath_to_depth_ratio=config.breath_to_depth_ratio,
 )
 
 sketcher = Sketcher()
-if args.draw is not None:
-    sketcher.set_location(args.draw)
+if config.draw is not None:
+    sketcher.set_location(config.draw)
 
-for molecules in model.start(args.generate, args.monte_carlo_iterations):
+for molecules in model.start(config.generate, config.monte_carlo_iterations):
     if molecules is None:
         continue
 
