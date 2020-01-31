@@ -20,7 +20,7 @@ class PositiveRewardFilter(AbstractFilter):
 class MolecularWeightFilter(AbstractFilter):
 
     def apply(self, mol: Chem.Mol, reward: float) -> bool:
-        Chem.SanitizeMol(mol)
+        mol.UpdatePropertyCache()
         return 300 < ExactMolWt(mol) < 500
 
 

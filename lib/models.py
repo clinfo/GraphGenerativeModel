@@ -213,7 +213,6 @@ class MonteCarloTreeSearch:
             molecule = compound.clean(preserve=True)
             smiles = Chem.MolToSmiles(molecule)
 
-            Chem.SanitizeMol(molecule)
             if Chem.MolFromSmiles(smiles) is None:
                 raise ValueError("Invalid molecule: {}".format(smiles))
 

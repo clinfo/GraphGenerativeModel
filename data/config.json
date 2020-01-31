@@ -11,6 +11,6 @@
     "reward_calculator": "energy_babel_mmff",
     "filters": ["positive_reward", "molecular_weight"],
 
-    "draw": "test/",
+    "draw": null,
     "logging": 50
 }
