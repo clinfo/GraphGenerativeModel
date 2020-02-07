@@ -221,3 +221,7 @@ The value of this parameter is an integer (use increments of 10). When the value
 - 10 - everything is usually logged, including energy calculations and exceptions
 - 20 - only the molecules output and its energy is logged
 - 30+ - only the result is logged
+
+## Issues:
+
+- The OpenBabel MMFF94 Force Field ocassionally causes memory corruption (as of version 2.4.1)
