@@ -225,3 +225,6 @@ The value of this parameter is an integer (use increments of 10). When the value
 ## Issues:
 
 - The OpenBabel MMFF94 Force Field ocassionally causes memory corruption (as of version 2.4.1)
+
+## Version
+0.2.0
