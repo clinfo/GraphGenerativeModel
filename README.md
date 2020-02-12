@@ -222,9 +222,27 @@ The value of this parameter is an integer (use increments of 10). When the value
 - 20 - only the molecules output and its energy is logged
 - 30+ - only the result is logged
 
+## Drawing 3D structures
+A helper script was included which can be used to visualize molecules in 3D. In order to use the script,
+a PyMol server must be running on the host machine. You may start the server by opening a new terminal and running:
+
+```bash
+conda activate graph_mcts
+pymol -R
+```
+
+Then from a separate terminal:
+```bash
+conda activate graph_mcts
+python -m scripts.draw_3d {input_file} {output_directory}
+```
+where:
+ - {input_file} contains SMILES (one per line)
+ - {output_directory} is the folder where the generated images are saved in
+
 ## Issues:
 
 - The OpenBabel MMFF94 Force Field ocassionally causes memory corruption (as of version 2.4.1)
 
 ## Version
-0.2.0
+0.2.1
