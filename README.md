@@ -26,6 +26,7 @@ Relevant files:
 - `lib/filters.py` - Filter implementations
 - `lib/helpers.py` - Helper classes (ie: drawing molecules)
 - `lib/models.py` - Monte Carlo Tree Search implementation
+- `config.json` - Sample configuration file
 - `environment.yml` - Requirements and dependencies
 - `run.py` - Command-line interface. You use this file to run the optimizer.
 
@@ -35,7 +36,7 @@ Trivial files:
 
 ## Configuration
 
-To run the code, you will need to have a configuration file (in JSON format). An example was included in `data/config.json`:
+To run the code, you will need to have a configuration file (in JSON format). An example was included, `config.json`:
 The options are (details for each option can be found below):
 
 - **dataset**: path to the dataset file (jbl file, output of GCN-K) (mandatory)
@@ -238,6 +239,7 @@ python -m scripts.draw_3d {input_file} {output_directory}
 ```
 where:
  - {input_file} contains SMILES (one per line)
+ - {output_directory} is the folder where the generated images are saved in
  - {output_directory} is the folder where the generated images are saved in
 
 ## Issues:

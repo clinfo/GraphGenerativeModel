@@ -12,5 +12,5 @@
     "filters": ["non_zero_reward", "positive_reward", "molecular_weight"],
 
     "draw": "test/",
-    "logging": 10
+    "logging": 50
 }
