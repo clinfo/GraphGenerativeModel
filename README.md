@@ -239,8 +239,7 @@ python -m scripts.draw_3d {input_file} {output_directory}
 ```
 where:
  - {input_file} contains SMILES (one per line)
- - {output_directory} is the folder where the generated images are saved in
- - {output_directory} is the folder where the generated images are saved in
+ - {output_directory} is the folder where the generated images are saved to
 
 ## Issues:
 
