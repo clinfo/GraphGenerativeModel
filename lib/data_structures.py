@@ -99,7 +99,7 @@ class CompoundBuilder(object):
     ATOM_SYMBOL_MAPPING = [
         'C', 'N', 'O', 'S', 'F', 'Si', 'P', 'Cl', 'Br', 'Mg', 'Na', 'Ca', 'Fe', 'As', 'Al', 'I',
         'B', 'V', 'K', 'Tl', 'Yb', 'Sb', 'Sn', 'Ag', 'Pd', 'Co', 'Se', 'Ti', 'Zn', 'H', 'Li',
-        'Ge', 'Cu', 'Au', 'Ni', 'Cd', 'In', 'Mn', 'Zr', 'Cr', 'Pt', 'Hg', 'Pb', 'Unknown'
+        'Ge', 'Cu', 'Au', 'Ni', 'Cd', 'In', 'Mn', 'Zr', 'Cr', 'Pt', 'Hg', 'Pb', '*'
     ]
 
     """Hybridization Type Map"""
@@ -229,6 +229,8 @@ class Tree(object):
             self.score = 0
             self.performance = 0
             self.depth = 0
+            
+            self.valid = False
 
         def add_child(self, compound):
             child = Tree.Node(compound, self)
@@ -307,11 +309,10 @@ class Tree(object):
 
         return nodes_list
 
-    def get_fittest(self, current_node=None, current_best=None, minimum_depth=0):
+    def get_fittest(self, current_node=None, current_best=None):
         """
         Retrieve the node with the lowest score
 
-        :param minimum_depth: Minimum depth for the node to qualify
         :param current_node: ignore. used in recursion.
         :param current_best: ignore. used in recursion.
         :return: Tree.Node
@@ -321,30 +322,25 @@ class Tree(object):
 
         for node in current_node.children:
 
-            is_invalid = node is None or node.score == 0 or node.score >= self.INFINITY or node.depth < minimum_depth
             is_better = current_best is None or node.score < current_best.score
-            if not is_invalid and is_better:
+            if node.valid and is_better:
                 current_best = node
 
             if not node.is_leaf_node():
-                current_best = self.get_fittest(node, current_best, minimum_depth)
+                current_best = self.get_fittest(node, current_best)
 
         return current_best
 
-    def get_fittest_per_level(self, minimum_depth=0):
+    def get_fittest_per_level(self):
         """
         Retrieve the node with the lowest score for each level
-
-        :param minimum_depth: Ignoring levels lower than this
         :return: dict(int: Tree.Node)
         """
         all_nodes = self.flatten()
         best_nodes = {}
 
         for node in all_nodes:
-            if node.depth >= minimum_depth and (
-                    node.depth not in best_nodes or node.score < best_nodes[node.depth].score
-            ):
+            if node.valid and (node.depth not in best_nodes or node.score < best_nodes[node.depth].score):
                 best_nodes[node.depth] = node
 
         return best_nodes
@@ -361,14 +357,14 @@ class Tree(object):
             node = self.root
 
         if best is None:
-            best = self.get_fittest().get_smiles()
+            best = self.get_fittest()
 
         smiles = node.get_smiles()
         text = "Level {}: {} - {}".format(node.depth, smiles, node.score)
         if len(node.children) == 0:
             text += " (leaf)"
 
-        if smiles == best:
+        if best is not None and smiles == best.get_smiles():
             text += " (winner)"
 
         logging.info(text)

@@ -1,18 +1,21 @@
 import logging
 import random
+from typing import List
 
 import numpy as np
+from rdkit import Chem
 from rdkit.Chem.rdchem import BondType
 
+from lib.calculators import AbstractCalculator
 from lib.data_providers import MoleculeLoader
 from lib.data_structures import Tree, Compound
-from lib.energy_calculators import *
+from lib.filters import AbstractFilter
 
 
-class MonteCarloTreeSearch(object):
+class MonteCarloTreeSearch:
 
     """
-    Bonds that are tested. During expansion, the energy of each
+    Bonds that are tested. During expansion, the reward for each
     bond type is calculated, and the lowest one is selected.
     """
     AVAILABLE_BONDS = [Chem.rdchem.BondType.SINGLE, Chem.rdchem.BondType.DOUBLE, Chem.rdchem.BondType.TRIPLE]
@@ -24,20 +27,22 @@ class MonteCarloTreeSearch(object):
 
     def __init__(
             self, data_provider: MoleculeLoader, minimum_depth, output_type,
-            energy_calculator: EnergyCalculatorPrototype, breath_to_depth_ratio=0
+            calculator: AbstractCalculator, filters: List[AbstractFilter], breath_to_depth_ratio=0
     ):
         """
         :param data_provider: MoleculeLoader
         :param minimum_depth: from the input parameters (see README.md for details)
         :param output_type: from the input parameters (see README.md for details)
-        :param energy_calculator: from the input parameters (see README.md for details)
+        :param calculator: from the input parameters (see README.md for details)
+        :param filters: from the input parameters (see README.md for details)
         :param breath_to_depth_ratio: from the input parameters (see README.md for details)
         """
         self.data_provider = data_provider
         self.minimum_depth = minimum_depth
         self.output_type = output_type
         self.breath_to_depth_ratio = breath_to_depth_ratio
-        self.energy_calculator = energy_calculator
+        self.calculator = calculator
+        self.filters = filters
 
     def start(self, molecules_to_process=10, iterations_per_molecule=100):
         """
@@ -102,7 +107,7 @@ class MonteCarloTreeSearch(object):
         selected_level = np.random.choice(levels, 1, p=probabilities)[0]
         candidates = nodes_per_level[selected_level]
 
-        scores = np.array([node.performance / node.visits for node in candidates])
+        scores = np.array([abs(node.performance) / node.visits for node in candidates])
         score_sum = np.sum(scores)
 
         scores = 1 - scores / score_sum if score_sum > 0 and len(scores) > 1 else [1 / len(scores)] * len(scores)
@@ -112,7 +117,7 @@ class MonteCarloTreeSearch(object):
 
     def expand(self, node: Tree.Node):
         """
-        In the expansion phase we loop over and calculate the energy of each possible bond type, then select the
+        In the expansion phase we loop over and calculate the reward for each possible bond type, then select the
         lowest one. The new molecule is then added as a child node to the input node. The bond cache in the compounds
         is also updated accordingly to reflect the changes.
 
@@ -147,12 +152,12 @@ class MonteCarloTreeSearch(object):
         target_bond_index = molecule.AddBond(int(source_atom), int(destination_atom), BondType.UNSPECIFIED)
         target_bond = molecule.GetBondWithIdx(target_bond_index - 1)
 
-        per_bond_energy_values = {}
+        per_bond_rewards = {}
         for bond_type in self.AVAILABLE_BONDS:
             target_bond.SetBondType(bond_type)
-            per_bond_energy_values[bond_type] = self.calculate_reward(compound)
+            per_bond_rewards[bond_type] = self.calculate_reward(compound)
 
-        target_bond.SetBondType(min(per_bond_energy_values, key=per_bond_energy_values.get))
+        target_bond.SetBondType(min(per_bond_rewards, key=per_bond_rewards.get))
         node.get_compound().remove_bond((source_atom, destination_atom))
 
         compound.remove_bond((source_atom, destination_atom))
@@ -170,6 +175,12 @@ class MonteCarloTreeSearch(object):
         """
         logging.debug("Simulating...")
         node.score = self.calculate_reward(node.compound)
+
+        molecule = node.compound.clean(preserve=True)
+        node.valid = node.score < np.Infinity and node.depth >= self.minimum_depth and all(
+            _filter.apply(molecule, node.score) for _filter in self.filters
+        )
+
         return node.score
 
     def update(self, node: Tree.Node):
@@ -192,7 +203,7 @@ class MonteCarloTreeSearch(object):
 
     def calculate_reward(self, compound: Compound):
         """
-        Calculate the energy of the compound based on the requested force field.
+        Calculate the reward of the compound based on the requested force field.
         If the molecule is not valid, the reward will be infinity.
 
         :param compound: Compound
@@ -205,20 +216,16 @@ class MonteCarloTreeSearch(object):
             if Chem.MolFromSmiles(smiles) is None:
                 raise ValueError("Invalid molecule: {}".format(smiles))
 
-            energy = self.energy_calculator.calculate(smiles)
-            if np.isnan(energy):
-                raise ValueError("NaN energy encountered: {}".format(smiles))
+            molecule.UpdatePropertyCache()
+            reward = self.calculator.calculate(molecule)
+            if np.isnan(reward):
+                raise ValueError("NaN reward encountered: {}".format(smiles))
 
-            logging.debug(
-                compound.get_smiles()
-                + " : " + Chem.MolToSmiles(molecule)
-                + " : " + "{0:.20f}".format(energy)
-            )
-
-            return abs(energy)
+            logging.debug("{} : {} : {:.6f}".format(compound.get_smiles(), Chem.MolToSmiles(molecule), reward))
+            return reward
 
         except (ValueError, RuntimeError, AttributeError) as e:
-            logging.debug(compound.get_smiles() + " : " + str(e))
+            logging.debug("[INVALID REWARD]: {} - {}".format(compound.get_smiles(), str(e)))
             return np.Infinity
 
     def prepare_output(self, tree: Tree):
@@ -231,26 +238,24 @@ class MonteCarloTreeSearch(object):
         """
 
         if self.output_type == self.OUTPUT_FITTEST:
-            output = tree.get_fittest(minimum_depth=self.minimum_depth)
+            output = tree.get_fittest()
 
             if output is None:
-                logging.info("No molecules reaching the minimum depth")
+                logging.info("No molecules reach the minimum depth")
                 return None
 
             return self.format_output(output)
 
+        output = tree.get_fittest_per_level()
+        if len(output) == 0:
+            logging.info("No molecules reach the minimum depth")
+            return None
+
         if self.output_type == self.OUTPUT_DEEPEST:
-            max_depth = tree.get_depth()
-            output = None
-
-            while output is None:
-                output = tree.get_fittest(minimum_depth=max_depth)
-                max_depth -= 1
-
-            return self.format_output(output)
+            deepest_level = max(output.keys())
+            return self.format_output(output[deepest_level])
 
         if self.output_type == self.OUTPUT_PER_LEVEL:
-            output = tree.get_fittest_per_level(minimum_depth=self.minimum_depth)
             return self.format_output(list(output.values()))
 
         raise ValueError("Unknown output type: {}".format(self.output_type))

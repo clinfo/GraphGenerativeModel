@@ -1,0 +1,19 @@
+from rdkit import Chem
+from lib.calculators import CalculatorFactory
+
+
+calculator = CalculatorFactory.create("atomwise_energy_babel_mmff")
+
+smiles = "C=C.C=[SH]1(C)CC1(C)CC.CC.CCC,CC(C)C(C)C.CCC1N=C=[SH]1(C)C.CCO,C=CO.CC(C)C(C)C.CCC1N=C=[SH]1(C)C,C#CO.CC(C)C(C)C.CCC1N=C=[SH]1(C)C,CC(C)C(C)C.CCC1N=C=[SH]1(C)C.CCO,C=[SH]1(C)CC1(CC)CO.CC.CCC,C=[SH]1(C)CC1(C=O)CC.CC.CCC,C=[SH]1(C)CC1(C=O)CC.CC.CCC,C=[SH]1(C)CC1(CC)CCCC.CC,C=[SH]1(C)CC1(C=CCC)CC.CC,C=[SH]1(C)CC1(C#CCC)CC.CC,C=[SH]1(C)CC1(CC)CCCC.CC,C=CC.C=[SH]1(C)CC1(C)CC.CC.CCC,C=C=C.C=[SH]1(C)CC1(C)CC.CC.CCC,C=CC.C=[SH]1(C)CC1(C)CC.CC.CCC,CC(C)C(C)C.CCC1N=C=[SH]1(C)C.CCO,C=CO.CC(C)C(C)C.CCC1N=C=[SH]1(C)C,C#CO.CC(C)C(C)C.CCC1N=C=[SH]1(C)C,CC(C)C(C)C.CCC1N=C=[SH]1(C)C.CCO,C=[SH]1(C)C(N)C1(CC)CCCC.CC,C=[SH]1(C)C(=N)C1(CC)CCCC.CC,C=[SH]1(C)C(N)C1(CC)CCCC.CC,CC(C)C(C)C.CC(C)O.CCC1N=C=[SH]1(C)C,C=C(C)O.CC(C)C(C)C.CCC1N=C=[SH]1(C)C,C=C(C)O.CC(C)C(C)C.CCC1N=C=[SH]1(C)C,C=S(C)C.CC.CC.CC,C=C.C=S(C)C.CC.CC,C#C.C=S(C)C.CC.CC,C=S(C)C.CC.CC.CC,CCC1CC1(C)C.CCCN=C=S(C)C,CCC1CC1(C)C.CCCN=C=S(C)C,C=[SH]1(C)CC1(C)CC.CC.CCCC,C=CCC.C=[SH]1(C)CC1(C)CC.CC,C#CCC.C=[SH]1(C)CC1(C)CC.CC,C=CCC.C=[SH]1(C)CC1(C)CC.CC,CCC1CC1(C)C.CCCN=C=S(C)C,CCC1CC1(C)C.CCCN=C=S(C)C,C=[SH]12CC1C2(C)CC.CC.CCC,C=[SH]12C=C1C2(C)CC.CC.CCC".split(",")
+for sm in smiles:
+    print(sm)
+    calculator.calculate(Chem.MolFromSmiles(sm))
+
+print("------------------------")
+
+for sm in smiles:
+    print(sm)
+    calculator.calculate(Chem.MolFromSmiles(sm))
+
+print("------------------------")
+print("done")
