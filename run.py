@@ -21,7 +21,7 @@ config = Config.load(args.config)
 
 logging.basicConfig(format="%(message)s", level=config.logging)
 molecule_loader = MoleculeLoader(file_path=config.dataset, threshold=config.threshold)
-reward_calculator = CalculatorFactory.create(config.reward_calculator)
+reward_calculator = CalculatorFactory.create(config.reward_calculator, config.reward_weights)
 filters = [FilterFactory.create(filter_) for filter_ in config.filters]
 
 model = MonteCarloTreeSearch(

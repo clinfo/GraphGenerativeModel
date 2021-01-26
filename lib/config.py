@@ -19,6 +19,7 @@ class Config(NamedTuple):
     breath_to_depth_ratio: Optional[float] = 1
 
     reward_calculator: Optional[str] = CalculatorFactory.COMPOUND_ENERGY_BABEL_MMFF
+    reward_weights: Optional[List[float]] = None
     filters: Optional[List[str]] = [FilterFactory.POSITIVE_REWARD, FilterFactory.MOLECULAR_WEIGHT]
 
     draw: Optional[str] = None

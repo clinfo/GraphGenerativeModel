@@ -137,6 +137,23 @@ class RingCountCalculator(AbstractCalculator):
         return -mol.GetRingInfo().NumRings()
 
 
+class CombinationCalculator(AbstractCalculator):
+    def __init__(self,calcs: list, weights:list=None):
+        self.calcs=calcs
+        self.calc_weights=weights
+        
+    def calculate(self, mol: Chem.Mol) -> float:
+        scores=[]
+        for i,calc in enumerate(self.calcs):
+            score=calc.calculate(mol)
+            if self.calc_weights is not None:
+                scores.append(self.calc_weights[i]*score)
+            else:
+                scores.append(score)
+        print(scores)
+        return sum(scores)
+
+
 class CalculatorFactory:
 
     COMPOUND_ENERGY_RDKIT_UFF = "compound_energy_rdkit_uff"
@@ -162,7 +179,7 @@ class CalculatorFactory:
     RING_COUNT = "ring_count"
 
     @staticmethod
-    def create(reward_type: str) -> AbstractCalculator:
+    def get_options():
         options = {
             CalculatorFactory.COMPOUND_ENERGY_RDKIT_UFF: RdKitEnergyCalculator(
                 RdKitEnergyCalculator.FORCE_FIELD_UFF
@@ -212,5 +229,14 @@ class CalculatorFactory:
             CalculatorFactory.SA: SaCalculator(),
             CalculatorFactory.RING_COUNT: RingCountCalculator()
         }
-
+        return options
+    
+    @staticmethod
+    def create(reward_type, reward_weights=None) -> AbstractCalculator:
+        options = CalculatorFactory.get_options()
+        if type(reward_type) is str:
+            return options[reward_type]
+        elif type(reward_type) is list:
+            calcs=[options[rt] for rt in reward_type]
+            return CombinationCalculator(calcs,reward_weights)
         return options[reward_type]

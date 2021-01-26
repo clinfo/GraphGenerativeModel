@@ -93,7 +93,15 @@ Note: this parameter influences execution time the most
 ### reward_calculator
 
 The reward calculator option specifies how the cost/reward is calculated. The objective is to minimize this cost. Calculators can
-be divided into 3 categories:
+be divided into 3 categories described in the following sections.
+
+Note that weighted multiple costs can be specified in the config.json.
+For example, 
+```
+"reward_calculator": ["cost1", "cost2"],
+"reward_weights": [0.01, 100],
+```
+denotes `total cost = 0.01 * cost1 + 100 * cost2`.
 
 #### 1. Basic energy calculators
 
