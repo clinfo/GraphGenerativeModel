@@ -12,6 +12,7 @@ from rdkit.Chem.Crippen import MolLogP
 from rdkit.Chem.QED import qed
 
 import importlib
+import numpy as np
 
 sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
 import sascorer
@@ -19,6 +20,7 @@ import sascorer
 
 class AbstractCalculator(metaclass=ABCMeta):
 
+    enable=True
     @abstractmethod
     def calculate(self, mol: Chem.Mol) -> float:
         raise NotImplementedError
@@ -69,6 +71,25 @@ class RdKitEnergyCalculator(AbstractEnergyCalculator):
 
         if self.force_field == self.FORCE_FIELD_UFF:
             return AllChem.UFFGetMoleculeForceField(molecule, confId)
+
+def read_histogram_file(filename):
+    hist_data=[]
+    sum_data=0
+    for line in open(filename):
+        bin_data=line.split("\t")
+        if len(bin_data)>0:
+            if bin_data[0]=="":
+                bin_begin=-np.inf
+            else:
+                bin_begin=float(bin_data[0])
+            if bin_data[1]=="":
+                bin_end= np.inf
+            else:
+                bin_end=float(bin_data[1])
+            v=float(bin_data[2])
+            sum_data+=v
+            hist_data.append((bin_begin, bin_end, v))
+    return hist_data, sum_data
 
 
 class BabelEnergyCalculator(AbstractEnergyCalculator):
@@ -138,6 +159,26 @@ class RingCountCalculator(AbstractCalculator):
         Chem.GetSymmSSSR(mol)
         return -mol.GetRingInfo().NumRings()
 
+
+class HistogramCalculator(AbstractCalculator):
+    BASE_PATH="hist/"
+    def __init__(self, calc, name):
+        self.calc=calc
+        filepath=self.BASE_PATH+name+".tsv"
+        if os.path.exists(filepath):
+            self.hist_data, self.sum = read_histogram_file(filepath)
+        else:
+            self.enable=False
+            self.hist_data, self.sum = None, None
+
+    def calculate(self, mol: Chem.Mol) -> float:
+        s=self.calc.calculate(mol)
+        for bin_begin, bin_end, val in self.hist_data:
+            if bin_begin<s and s<=bin_end:
+                likelihood=val/((bin_end-bin_begin)*self.sum)
+                ll=-np.log(likelihood+1.0e-10)
+                return ll
+        return 1.0e10
 
 class CombinationCalculator(AbstractCalculator):
     def __init__(self,calcs: list, weights:list=None):
@@ -230,6 +271,11 @@ class CalculatorFactory:
             CalculatorFactory.SA: SaCalculator(),
             CalculatorFactory.RING_COUNT: RingCountCalculator()
         }
+        opt={}
+        for key in options.keys():
+            opt["hist_"+key]=HistogramCalculator(options[key],"hist_"+key)
+        options.update(opt)
+        print(options)
         return options
     
     @staticmethod
