@@ -46,27 +46,26 @@ class RdKitEnergyCalculator(AbstractEnergyCalculator):
     def calculate(self, mol: Chem.Mol) -> float:
         mol = Chem.MolFromSmiles(Chem.MolToSmiles(mol))
         Chem.GetSymmSSSR(mol)
-
+        cids = AllChem.EmbedMultipleConfs(mol, numConfs=self.RECALCULATION_LOOPS)
         values = []
-        for _ in range(self.RECALCULATION_LOOPS):
-            force_field = self.get_force_field(mol)
+        for i in range(self.RECALCULATION_LOOPS):
+            force_field = self.get_force_field(mol,confId=cids[i])
             force_field.Initialize()
             force_field.Minimize()
 
             values.append(force_field.CalcEnergy())
-
         return min(values)
 
-    def get_force_field(self, molecule: Chem.Mol) -> AllChem.ForceField:
+    def get_force_field(self, molecule: Chem.Mol, confId) -> AllChem.ForceField:
         Chem.AddHs(molecule)
         AllChem.EmbedMolecule(molecule)
 
         if self.force_field == self.FORCE_FIELD_MMFF:
             properties = AllChem.MMFFGetMoleculeProperties(molecule)
-            return AllChem.MMFFGetMoleculeForceField(molecule, properties)
+            return AllChem.MMFFGetMoleculeForceField(molecule, properties, confId)
 
         if self.force_field == self.FORCE_FIELD_UFF:
-            return AllChem.UFFGetMoleculeForceField(molecule)
+            return AllChem.UFFGetMoleculeForceField(molecule, confId)
 
 
 class BabelEnergyCalculator(AbstractEnergyCalculator):
