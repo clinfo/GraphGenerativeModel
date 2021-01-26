@@ -45,11 +45,12 @@ class RdKitEnergyCalculator(AbstractEnergyCalculator):
 
     def calculate(self, mol: Chem.Mol) -> float:
         mol = Chem.MolFromSmiles(Chem.MolToSmiles(mol))
+        mol = Chem.AddHs(mol)
         Chem.GetSymmSSSR(mol)
         cids = AllChem.EmbedMultipleConfs(mol, numConfs=self.RECALCULATION_LOOPS)
         values = []
-        for i in range(self.RECALCULATION_LOOPS):
-            force_field = self.get_force_field(mol,confId=cids[i])
+        for cid in cids:
+            force_field = self.get_force_field(mol, confId=cid)
             force_field.Initialize()
             force_field.Minimize()
 

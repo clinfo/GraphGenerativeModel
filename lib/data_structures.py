@@ -159,7 +159,7 @@ class CompoundBuilder(object):
         if len(features)>=76:
             ring_size=list(range(3,8))
             result["ring"]=features[75],
-            retult["ring_size"]= ring_size[np.argmax(features[76:81])]
+            result["ring_size"]= ring_size[np.argmax(features[76:81])]
         return result
     def get_chemical_symbol(self, features, sample=True):
         """
