@@ -116,7 +116,9 @@ class CompoundBuilder(object):
         0: Chem.rdchem.BondType.SINGLE,
         1: Chem.rdchem.BondType.DOUBLE,
         2: Chem.rdchem.BondType.TRIPLE,
-        3: Chem.rdchem.BondType.TRIPLE
+        3: Chem.rdchem.BondType.AROMATIC,
+        4: Chem.rdchem.BondType.OTHER,
+        5: "Conjugate",
     }
 
     def __init__(self, bonds, atoms, threshold=0.2):
@@ -144,6 +146,7 @@ class CompoundBuilder(object):
         :param features: atom data
         :return: dict
         """
+        ring_size=list(range(3,8))
         return {
             "symbol": self.get_chemical_symbol(features, sample=True),
             "degree": np.argmax(features[44:55]),
@@ -153,6 +156,8 @@ class CompoundBuilder(object):
             "hybridization": self.HYBRIDIZATION_MAPPING[int(np.argmax(features[64:69]))],
             "is_aromatic": features[69],
             "hydrogen_atoms_count": np.argmax(features[70:75])
+            "ring": features[75],
+            "ring_size": ring_size[np.argmax(features[76:81])]
         }
 
     def get_chemical_symbol(self, features, sample=True):
