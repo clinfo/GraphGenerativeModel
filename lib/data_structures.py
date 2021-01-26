@@ -146,8 +146,7 @@ class CompoundBuilder(object):
         :param features: atom data
         :return: dict
         """
-        ring_size=list(range(3,8))
-        return {
+        result={
             "symbol": self.get_chemical_symbol(features, sample=True),
             "degree": np.argmax(features[44:55]),
             "implicit_valence": np.argmax(features[55:62]),
@@ -156,10 +155,12 @@ class CompoundBuilder(object):
             "hybridization": self.HYBRIDIZATION_MAPPING[int(np.argmax(features[64:69]))],
             "is_aromatic": features[69],
             "hydrogen_atoms_count": np.argmax(features[70:75])
-            "ring": features[75],
-            "ring_size": ring_size[np.argmax(features[76:81])]
         }
-
+        if len(features)>=76:
+            ring_size=list(range(3,8))
+            result["ring"]=features[75],
+            retult["ring_size"]= ring_size[np.argmax(features[76:81])]
+        return result
     def get_chemical_symbol(self, features, sample=True):
         """
         :param features: atom data
