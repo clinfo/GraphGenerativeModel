@@ -2,6 +2,10 @@ import argparse
 import json
 import logging
 
+# For old version of tensorflow and rdkit
+# if you don't use tensorflow and kgcn, please comment out this line
+import tensorflow as tf
+
 from rdkit import RDLogger
 
 from lib.calculators import CalculatorFactory
@@ -21,7 +25,7 @@ config = Config.load(args.config)
 
 logging.basicConfig(format="%(message)s", level=config.logging)
 molecule_loader = MoleculeLoader(file_path=config.dataset, threshold=config.threshold)
-reward_calculator = CalculatorFactory.create(config.reward_calculator, config.reward_weights)
+reward_calculator = CalculatorFactory.create(config.reward_calculator, config.reward_weights, config)
 filters = [FilterFactory.create(filter_) for filter_ in config.filters]
 
 model = MonteCarloTreeSearch(

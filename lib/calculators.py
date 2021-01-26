@@ -11,6 +11,8 @@ from rdkit.Chem import rdMolDescriptors
 from rdkit.Chem.Crippen import MolLogP
 from rdkit.Chem.QED import qed
 
+import importlib
+
 sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
 import sascorer
 
@@ -150,7 +152,6 @@ class CombinationCalculator(AbstractCalculator):
                 scores.append(self.calc_weights[i]*score)
             else:
                 scores.append(score)
-        print(scores)
         return sum(scores)
 
 
@@ -232,11 +233,28 @@ class CalculatorFactory:
         return options
     
     @staticmethod
-    def create(reward_type, reward_weights=None) -> AbstractCalculator:
+    def get_external_calc(name, config):
+        external_options=["kgcn"]
+        if name in external_options:
+            #calc_obj=calc.kgcn.Calculator(config)
+            mod_name="calc."+name
+            mod=importlib.import_module(mod_name)
+            cls = getattr(mod, "Calculator")
+            calc_obj = cls(config)
+            return calc_obj
+        else:
+            return None
+
+    @staticmethod
+    def create(reward_type, reward_weights=None, config=None) -> AbstractCalculator:
         options = CalculatorFactory.get_options()
+        def get_calc(name,config):
+            if name in options:
+                return options[name]
+            return CalculatorFactory.get_external_calc(name, config)
         if type(reward_type) is str:
-            return options[reward_type]
+            return get_calc(reward_type,config)
         elif type(reward_type) is list:
-            calcs=[options[rt] for rt in reward_type]
+            calcs=[get_calc(rt,config) for rt in reward_type]
             return CombinationCalculator(calcs,reward_weights)
         return options[reward_type]
