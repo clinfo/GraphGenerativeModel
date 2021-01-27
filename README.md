@@ -149,6 +149,11 @@ Everything else, not energy calculation related.
 
 Modifications to the formulas can be easily added (`lib/calculators.py`)    
 
+#### 4. kGCN (external calculators):
+
+- `kgcn` - An example of the config file is `config_kgcn.json`, and kGCN model is defined in the `calc/`.
+
+
 
 ### filters
 
@@ -180,6 +185,7 @@ be a negative value, so it will not work with this filter.
 - This filter can be used with any calculator, but note that many early (small depth) molecules will be filtered out.
 If no results are printed, try to adjust some of the other settings like the "minimum_output_depth", "threshold" or the
 number of "monte_carlo_iterations"
+
 
 ### output_type
 We implemented 3 different ways to select the output/best solution:
