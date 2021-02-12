@@ -199,7 +199,9 @@ class CompoundBuilder(object):
         Creates a list of tuples that we can easily work with
         :return: None
         """
+        invalid_atoms = np.logical_not(self.is_atom_valid)
         bonds = self.filter_bonds(self.bonds, self.threshold)
+
         for source_atom, destination_atom in zip(bonds[1], bonds[2]):
             if (
                     source_atom < destination_atom
@@ -207,7 +209,10 @@ class CompoundBuilder(object):
                     and self.is_atom_valid[destination_atom]
                     and (source_atom, destination_atom) not in self.bonds_cache
             ):
-                self.bonds_cache.add((source_atom, destination_atom))
+                self.bonds_cache.add((
+                    source_atom - sum(invalid_atoms[:source_atom]),
+                    destination_atom - sum(invalid_atoms[:destination_atom]),
+                ))
 
 
 class Tree(object):
