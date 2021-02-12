@@ -125,9 +125,11 @@ class CompoundBuilder(object):
         :param atoms: Atom data
         :param threshold: input parameter. see README.md for details.
         """
-        self.atoms = atoms
         self.bonds = bonds
         self.threshold = threshold
+
+        self.atoms = atoms
+        self.is_atom_valid = np.max(np.array(self.atoms)[:, 0:44], axis=1) > 0.01
 
         self.molecule = Chem.RWMol()
         self.bonds_cache = set()
@@ -184,8 +186,8 @@ class CompoundBuilder(object):
         Add atoms to the local molecule (rdKit.Mol)
         :return: None
         """
-        for atom in self.atoms:
-            if np.max(atom[0:44]) > 0.01:
+        for index, atom in enumerate(self.atoms):
+            if self.is_atom_valid[index]:
                 atomic_symbol = self.get_atom_features(atom).get("symbol")
                 atom = Chem.Atom(atomic_symbol)
 
@@ -199,7 +201,12 @@ class CompoundBuilder(object):
         """
         bonds = self.filter_bonds(self.bonds, self.threshold)
         for source_atom, destination_atom in zip(bonds[1], bonds[2]):
-            if source_atom < destination_atom and (source_atom, destination_atom) not in self.bonds_cache:
+            if (
+                    source_atom < destination_atom
+                    and self.is_atom_valid[source_atom]
+                    and self.is_atom_valid[destination_atom]
+                    and (source_atom, destination_atom) not in self.bonds_cache
+            ):
                 self.bonds_cache.add((source_atom, destination_atom))
 
 

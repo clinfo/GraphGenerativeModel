@@ -108,7 +108,7 @@ class MonteCarloTreeSearch:
         candidates = nodes_per_level[selected_level]
 
         scores = np.array([abs(node.performance) / node.visits for node in candidates])
-        score_sum = np.sum(scores)
+        score_sum = np.sum(scores) + 1e-8
 
         scores = 1 - scores / score_sum if score_sum > 0 and len(scores) > 1 else [1 / len(scores)] * len(scores)
         scores /= np.sum(scores)  # normalize outputs (so they add up to 1)
@@ -142,7 +142,7 @@ class MonteCarloTreeSearch:
                 candidate_atoms.add(bond.GetBeginAtomIdx())
 
             for source_atom, destination_atom in available_bonds:
-                if source_atom in candidate_atoms or destination_atom in candidate_bonds:
+                if source_atom in candidate_atoms or destination_atom in candidate_atoms:
                     neighboring_bonds.append((source_atom, destination_atom))
 
             if len(neighboring_bonds) > 0:
