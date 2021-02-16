@@ -1,5 +1,4 @@
 import logging
-import random
 from typing import List
 
 import numpy as np
@@ -142,13 +141,13 @@ class MonteCarloTreeSearch:
                 candidate_atoms.add(bond.GetBeginAtomIdx())
 
             for source_atom, destination_atom in available_bonds:
-                if source_atom in candidate_atoms or destination_atom in candidate_bonds:
+                if source_atom in candidate_atoms or destination_atom in candidate_atoms:
                     neighboring_bonds.append((source_atom, destination_atom))
 
             if len(neighboring_bonds) > 0:
                 candidate_bonds = neighboring_bonds
 
-        source_atom, destination_atom = random.sample(candidate_bonds, 1)[0]
+        source_atom, destination_atom = list(candidate_bonds)[np.random.choice(len(candidate_bonds), 1)[0]]
         target_bond_index = molecule.AddBond(int(source_atom), int(destination_atom), BondType.UNSPECIFIED)
         target_bond = molecule.GetBondWithIdx(target_bond_index - 1)
 
