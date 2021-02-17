@@ -55,7 +55,7 @@ class Compound(object):
         Helpful when the Compound is cloned
         :return: None
         """
-        self.initial_bonds = self.bonds
+        self.initial_bonds = self.bonds.copy()
 
     def clean(self, preserve=False):
         """
