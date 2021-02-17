@@ -54,11 +54,12 @@ done = False
 
 for compound in molecule_loader.fetch(molecules_to_process=config.generate):
     env.set_compound(compound)
-    env.reset()
+    observation = env.reset()
     agent.reset(compound)
+    info = {"compound": compound}
     for k in range(config.monte_carlo_iterations):
-        compound, action = agent.act(compound, reward)
-        compound, reward, done, info = env.step(compound, action)
+        action = agent.act(observation, reward, info, done)
+        observation, reward, done, info = env.step(action)
         if done:
             break
 

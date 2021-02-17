@@ -32,6 +32,12 @@ class Compound(object):
         """
         return self.initial_bonds
 
+    def get_index_to_bond_mapper(self):
+        return {k: b for k,b in enumerate(self.get_initial_bonds())}
+
+    def get_bond_to_index_mapper(self):
+        return {b: k for k,b in enumerate(self.get_initial_bonds())}
+
     def get_bonds(self):
         """
         The set of current/remaining bonds

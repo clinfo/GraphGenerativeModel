@@ -2,7 +2,7 @@ import logging
 import random
 import itertools
 import gym
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 
@@ -43,18 +43,20 @@ class MonteCarloTreeSearchAgent:
         self.states_tree = Tree(compound)
         self.init_compound = compound.clone()
 
-    def act(self, compound: Compound, reward: float):
+    def act(self, observation: np.array, reward: float, info: dict, done: bool):
         """
         Performs two operations.
         First, updates the state tree based on new child compound and reward from last iteration.
         Second, selects a node and bond to add to it for the next iteration.
-        :param compound: compound obtained from last iteration after adding bond.
+        :param observation: np.array encoding the activated bonds for the compound
         :param reward: reward obtained at last iteration
-        :return Compound: compound to process
-        ;return Tuple(int, int): bond to add
+        :param info: dictionnary containing additional information, essentialy the updated compound
+        :param done: boolean indicating whether episode is over or not
+        :return action: np.array encoding the selected node and bond to add
         """
+        compound = info["compound"]
         if self.selected_node is not None and reward is not None:
-            self.selected_node.get_compound().remove_bond(self.selected_bond_indexes)
+            self.selected_node.get_compound().remove_bond(self.selected_bond)
             new_node = self.selected_node.add_child(compound)
             molecule = new_node.compound.clean(preserve=True)
             new_node.score = reward
@@ -63,9 +65,23 @@ class MonteCarloTreeSearchAgent:
             )
             self.update(new_node)
         self.selected_node = self.select_node(self.states_tree)
-        self.selected_bond_indexes = self.select_bond(self.selected_node)
+        self.selected_bond = self.select_bond(self.selected_node)
 
-        return self.selected_node.get_compound().clone(), self.selected_bond_indexes
+        return self.encode_to_array(self.selected_node, self.selected_bond)
+
+    def encode_to_array(self, node: Tree.Node, bond: Tuple[int, int]):
+        """
+        Encodes a given node and bond to add to np.array format
+        :param node: node to encode
+        :param bond: bond to add
+        :return np.array: encoding of bond to add and node compound
+        """
+        bond_to_index = self.init_compound.get_bond_to_index_mapper()
+        state = np.ones(len(bond_to_index), dtype=np.uint8)
+        for b in node.get_compound().get_initial_bonds():
+            state[bond_to_index[b]] = 0
+        bond_index = bond_to_index[bond] if None not in bond else -1
+        return np.array([bond_index] + state.tolist(), dtype=np.int8)
 
     def select_node(self, tree: Tree):
         """

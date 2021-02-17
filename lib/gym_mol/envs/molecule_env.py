@@ -35,17 +35,19 @@ class MoleculeEnv(gym.Env):
         """
         self.init_compound = compound.clone()
 
-    def step(self, compound: Compound, action: Union[int, Tuple[int, int]]):
+    def step(self, action):
         """
         Performs a step by adding a bond to a given compound and computing the associated reward.
-        :param compound: Compound to add bond to
-        :param action: int or tuple(int, int) bond number or bond indexes
-        :return compound: updated compound
+        :param action: np.array from action space
+        :return observation: observed state after performing action
         :return reward: reward for selected action
         :return done: whether episode is completed
         :return info: contains additional information
         """
-        source_atom, destination_atom = self.action_mapper[action] if isinstance(action, int) else action
+        bond = action[0]
+        state = action[1:]
+        compound = self._state_to_compound(state)
+        source_atom, destination_atom = self.action_mapper[bond]
         if source_atom is None or destination_atom is None:
             logging.debug("No bonds selected to add to compound")
             reward = None
@@ -57,9 +59,12 @@ class MoleculeEnv(gym.Env):
             reward = self.calculate_reward(compound)
 
         done = self._is_done(compound, reward)
+        observation = self._compound_to_state(compound)
+        if self._hash_state(observation) not in self.cache:
+            self.cache[self._hash_state(observation)] = compound
 
-        info = {}
-        return compound, reward, done, info
+        info = {"compound": compound}
+        return observation, reward, done, info
     
 
     def add_bond(self, compound: Compound, source_atom: int, destination_atom: int):
@@ -129,11 +134,56 @@ class MoleculeEnv(gym.Env):
         :param None:
         :return None:
         """
-        n_bonds = len(self.init_compound.get_initial_bonds())
-        self.action_space = spaces.Discrete(n_bonds)
-        self.action_mapper = {k: (source_atom, destination_atom) for k, (source_atom, destination_atom) in enumerate(self.init_compound.initial_bonds)}
+        n_bonds = self.init_compound.bonds_count()
+        self.action_space = spaces.MultiDiscrete([n_bonds] + [2 for _ in range(n_bonds)])
+        self.action_mapper = self.init_compound.get_index_to_bond_mapper()
         self.action_mapper[-1] = (None, None)
+        self.action_reverse_mapper = {v: k for k,v in self.action_mapper.items()}
         self.n_actions = n_bonds
+
+    def _reset_observation_space(self):
+        """
+        Resets observation space based on possible bonds of initial compound.
+        """
+        self.observation_space = spaces.MultiBinary(self.init_compound.bonds_count())
+
+    def _compound_to_state(self, compound: Compound):
+        """
+        Converts compound to array encoding activated bonds.
+        :param compound: compound to encode
+        :return state: binary np.array where 1 indicates presence of bond
+        """
+        state = np.ones(self.n_actions, dtype=np.int8)
+        for bond in compound.get_bonds():
+            state[self.action_reverse_mapper[bond]] = 0
+        return state
+
+    def _hash_state(self, state: np.array):
+        """
+        Converts state np.array into single int by considering the array as a binary encoding of a number.
+        :param state: binary np.array
+        :return int:
+        """
+        return sum([x*2**k for k,x in enumerate(state)])
+
+    def _state_to_compound(self, state: np.array):
+        """
+        Converts state np.array to a compound by adding bonds one by one from initial compound.
+        Not guaranteed to give accurate results since the order of bonds is not taken into account
+        :param state: binary np.array
+        :return compound:
+        """
+        n = self._hash_state(state)
+        if n in self.cache:
+            return self.cache[n].clone()
+        else:
+            compound = self.init_compound.clone()
+            for i, bond in enumerate(state):
+                if bond:
+                    source_atom, destination_atom = self.action_mapper[i]
+                    compound = self.add_bond(compound, source_atom, destination_atom)
+            self.cache[n] = compound
+            return compound.clone()
 
     def reset(self):
         """
@@ -142,6 +192,10 @@ class MoleculeEnv(gym.Env):
         :return None:
         """
         self._reset_action_space()
+        self._reset_observation_space()
+        init_observation = np.zeros(self.n_actions, dtype=np.int8)
+        self.cache = {self._hash_state(init_observation): self.init_compound.clone()}
+        return init_observation
 
     def render(self, smiles: str):
         """
