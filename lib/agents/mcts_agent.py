@@ -201,3 +201,6 @@ class MonteCarloTreeSearchAgent:
             })
 
         return solutions
+
+    def get_output(self, compound):
+        return self.prepare_output(self.states_tree)
