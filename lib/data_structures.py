@@ -80,6 +80,9 @@ class Compound(object):
 
         return molecule
 
+    def clean_smiles(self, preserve=False):
+        return Chem.MolToSmiles(self.clean(preserve))
+
     def clone(self):
         """
         Create an identical Compound to the current on

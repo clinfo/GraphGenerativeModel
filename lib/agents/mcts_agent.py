@@ -5,8 +5,6 @@ import gym
 from typing import List
 
 import numpy as np
-from rdkit import Chem
-from rdkit.Chem.rdchem import BondType
 
 from lib.calculators import AbstractCalculator
 from lib.data_providers import MoleculeLoader
@@ -14,7 +12,7 @@ from lib.data_structures import Tree, Compound
 from lib.filters import AbstractFilter
 
 
-class MCTS:
+class MonteCarloTreeSearchAgent:
 
     """Available Output Types"""
     OUTPUT_FITTEST = "fittest"
@@ -22,7 +20,7 @@ class MCTS:
     OUTPUT_PER_LEVEL = "per_level"
 
     def __init__(
-            self, minimum_depth, output_type, filters: List[AbstractFilter], breath_to_depth_ratio=0
+            self, minimum_depth: int, output_type: str, filters: List[AbstractFilter], breath_to_depth_ratio: float=0
     ):
         """
         :param minimum_depth: from the input parameters (see README.md for details)
@@ -35,12 +33,26 @@ class MCTS:
         self.breath_to_depth_ratio = breath_to_depth_ratio
         self.filters = filters
 
-    def reset(self, compound):
+    def reset(self, compound: Compound):
+        """
+        Resets the MCTS agent by reinitializing the tree from a root compound.
+        :param compound: Compound
+        :return: None
+        """
         self.selected_node = None
         self.states_tree = Tree(compound)
         self.init_compound = compound.clone()
 
-    def act(self, compound, reward):
+    def act(self, compound: Compound, reward: float):
+        """
+        Performs two operations.
+        First, updates the state tree based on new child compound and reward from last iteration.
+        Second, selects a node and bond to add to it for the next iteration.
+        :param compound: compound obtained from last iteration after adding bond.
+        :param reward: reward obtained at last iteration
+        :return Compound: compound to process
+        ;return Tuple(int, int): bond to add
+        """
         if self.selected_node is not None and reward is not None:
             self.selected_node.get_compound().remove_bond(self.selected_bond_indexes)
             new_node = self.selected_node.add_child(compound)
@@ -100,12 +112,6 @@ class MCTS:
         available_bonds = node.get_compound().get_bonds()
         current_bonds = molecule.GetBonds()
         candidate_bonds = available_bonds
-        # for child in node.children:
-        #     candidate_bonds = [bond for bond in candidate_bonds if bond in child.get_compound().get_bonds()]
-        # if node.parent is not None:
-        #     for same_level_node in node.parent.children:
-        #         if same_level_node != node:
-        #             candidate_bonds = [bond for bond in candidate_bonds if bond in same_level_node.get_compound().get_bonds()]
 
         if len(candidate_bonds) == 0:
             logging.debug("All bonds have been used.")
@@ -189,7 +195,7 @@ class MCTS:
         solutions = []
         for node in nodes:
             solutions.append({
-                "smiles": Chem.MolToSmiles(node.get_compound().clean()),
+                "smiles": node.get_compound().clean_smiles(),
                 "depth": node.depth,
                 "score": node.score
             })

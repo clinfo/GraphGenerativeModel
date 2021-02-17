@@ -1,1 +1,1 @@
-from .mcts_agent import MCTS
+from .mcts_agent import MonteCarloTreeSearchAgent
