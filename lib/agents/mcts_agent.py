@@ -51,17 +51,9 @@ class MonteCarloTreeSearchAgent:
         :param compound: compound obtained from last iteration after adding bond.
         :param reward: reward obtained at last iteration
         :return Compound: compound to process
-        ;return Tuple(int, int): bond to add
+        :return Tuple(int, int): bond to add
         """
-        if self.selected_node is not None and reward is not None:
-            self.selected_node.get_compound().remove_bond(self.selected_bond_indexes)
-            new_node = self.selected_node.add_child(compound)
-            molecule = new_node.compound.clean(preserve=True)
-            new_node.score = reward
-            new_node.valid = new_node.score < np.Infinity and new_node.depth >= self.minimum_depth and all(
-                _filter.apply(molecule, new_node.score) for _filter in self.filters
-            )
-            self.update(new_node)
+        self.update_tree(compound, reward)
         self.selected_node = self.select_node(self.states_tree)
         self.selected_bond_indexes = self.select_bond(self.selected_node)
 
@@ -131,6 +123,23 @@ class MonteCarloTreeSearchAgent:
                 candidate_bonds = neighboring_bonds
         source_atom, destination_atom = list(candidate_bonds)[np.random.choice(len(candidate_bonds), 1)[0]]
         return source_atom, destination_atom
+
+    def update_tree(self, compound, reward):
+        """
+        Updates the state tree based on new child compound to add and associated reward.
+        :param compound: compound obtained from last iteration after adding bond.
+        :param reward: reward obtained at last iteration
+        :return None:
+        """
+        if self.selected_node is not None and reward is not None:
+            self.selected_node.get_compound().remove_bond(self.selected_bond_indexes)
+            new_node = self.selected_node.add_child(compound)
+            molecule = new_node.compound.clean(preserve=True)
+            new_node.score = reward
+            new_node.valid = new_node.score < np.Infinity and new_node.depth >= self.minimum_depth and all(
+                _filter.apply(molecule, new_node.score) for _filter in self.filters
+            )
+            self.update(new_node)
 
     def update(self, node: Tree.Node):
         """

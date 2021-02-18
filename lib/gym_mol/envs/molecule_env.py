@@ -133,7 +133,6 @@ class MoleculeEnv(gym.Env):
         self.action_space = spaces.Discrete(n_bonds)
         self.action_mapper = {k: (source_atom, destination_atom) for k, (source_atom, destination_atom) in enumerate(self.init_compound.initial_bonds)}
         self.action_mapper[-1] = (None, None)
-        self.n_actions = n_bonds
 
     def reset(self):
         """

@@ -7,7 +7,7 @@ import lib.gym_mol
 
 # For old version of tensorflow and rdkit
 # if you don't use tensorflow and kgcn, please comment out this line
-# import tensorflow as tf
+import tensorflow as tf
 
 
 from rdkit import RDLogger
@@ -49,13 +49,12 @@ elif config.agent == "Random":
 else:
     raise ValueError(f"Agent: {config.agent} not implemented. Choose from 'MonteCarloTreeSearch', 'Random'")
 
-reward = 0
-done = False
-
 for compound in molecule_loader.fetch(molecules_to_process=config.generate):
     env.set_compound(compound)
     env.reset()
     agent.reset(compound)
+    reward = 0
+    done = False
     for k in range(config.monte_carlo_iterations):
         compound, action = agent.act(compound, reward)
         compound, reward, done, info = env.step(compound, action)
