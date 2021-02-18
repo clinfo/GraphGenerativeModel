@@ -18,7 +18,7 @@ class RandomAgent:
 		"""
 		Randomly samples an action from action space
 		:param compound: Compound used at previous iteration
-		;param reward: reward obtained at previous iteration
+		:param reward: reward obtained at previous iteration
 		:return compound: Compound to act on
 		:return int: action index
 		"""
