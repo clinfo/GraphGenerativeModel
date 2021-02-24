@@ -1,13 +1,8 @@
 import logging
-import random
-import itertools
-import gym
 from typing import List
 
 import numpy as np
 
-from lib.calculators import AbstractCalculator
-from lib.data_providers import MoleculeLoader
 from lib.data_structures import Tree, Compound
 from lib.filters import AbstractFilter
 
