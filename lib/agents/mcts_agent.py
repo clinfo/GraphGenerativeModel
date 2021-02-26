@@ -59,8 +59,8 @@ class MonteCarloTreeSearchAgent:
             self.selected_node.get_compound().remove_bond(self.selected_bond)
             new_node = self.selected_node.add_child(compound)
             molecule = new_node.compound.clean(preserve=True)
-            new_node.score = reward
-            new_node.valid = new_node.score < np.Infinity and new_node.depth >= self.minimum_depth and all(
+            new_node.score = -reward
+            new_node.valid = new_node.score < Tree.INFINITY and new_node.depth >= self.minimum_depth and all(
                 _filter.apply(molecule, new_node.score) for _filter in self.filters
             )
             self.update(new_node)

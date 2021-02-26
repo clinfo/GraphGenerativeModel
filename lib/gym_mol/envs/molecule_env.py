@@ -7,12 +7,13 @@ from rdkit import Chem
 from rdkit.Chem.rdchem import BondType
 from typing import Union, Tuple
 
-from lib.data_structures import Compound
+from lib.data_structures import Compound, Tree
 from lib.calculators import AbstractCalculator
 from lib.helpers import Sketcher
 
 class MoleculeEnv(gym.Env):
     AVAILABLE_BONDS = [Chem.rdchem.BondType.SINGLE, Chem.rdchem.BondType.DOUBLE, Chem.rdchem.BondType.TRIPLE]
+    INFINITY = Tree.INFINITY
 
     def initialize(self, calculator: AbstractCalculator, render_location: str=None):
         """
@@ -53,10 +54,10 @@ class MoleculeEnv(gym.Env):
             reward = None
         elif (source_atom, destination_atom) not in compound.get_bonds():
             logging.debug("Selected bond is already in compound")
-            reward = np.Infinity
+            reward = -self.INFINITY
         else:
             compound = self.add_bond(compound, source_atom, destination_atom)
-            reward = self.calculate_reward(compound)
+            reward = -self.calculate_reward(compound)
 
         done = self._is_done(compound, reward)
         observation = self._compound_to_state(compound)
@@ -115,7 +116,7 @@ class MoleculeEnv(gym.Env):
 
         except (ValueError, RuntimeError, AttributeError) as e:
           logging.debug("[INVALID REWARD]: {} - {}".format(compound.get_smiles(), str(e)))
-          return np.Infinity
+          return self.INFINITY
 
 
     def _is_done(self, compound: Compound, reward: float):

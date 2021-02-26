@@ -237,7 +237,7 @@ class Tree(object):
     """
 
     """Top limit for the score"""
-    INFINITY = 10e12
+    INFINITY = 20
 
     class Node(object):
         """

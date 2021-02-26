@@ -7,7 +7,7 @@ import lib.gym_mol
 
 # For old version of tensorflow and rdkit
 # if you don't use tensorflow and kgcn, please comment out this line
-# import tensorflow as tf
+import tensorflow as tf
 
 
 from rdkit import RDLogger
@@ -16,7 +16,7 @@ from lib.calculators import CalculatorFactory
 from lib.config import Config
 from lib.data_providers import MoleculeLoader
 from lib.filters import FilterFactory
-from lib.agents import MonteCarloTreeSearchAgent, RandomAgent
+from lib.agents import MonteCarloTreeSearchAgent, RandomAgent, PPO2Agent
 
 RDLogger.logger().setLevel(RDLogger.CRITICAL)
 
@@ -46,24 +46,25 @@ if config.agent == "MonteCarloTreeSearch":
     )
 elif config.agent == "Random":
     agent = RandomAgent()
+elif config.agent == "PPO2":
+    agent = PPO2Agent(env)
 else:
     raise ValueError(f"Agent: {config.agent} not implemented. Choose from 'MonteCarloTreeSearch', 'Random'")
-
-reward = 0
-done = False
 
 for compound in molecule_loader.fetch(molecules_to_process=config.generate):
     env.set_compound(compound)
     observation = env.reset()
     agent.reset(compound)
     info = {"compound": compound}
+    reward = 0
+    done = False
     for k in range(config.monte_carlo_iterations):
         action = agent.act(observation, reward, info, done)
         observation, reward, done, info = env.step(action)
         if done:
             break
 
-    output = agent.get_output(compound)
+    output = agent.get_output(info["compound"])
     print(json.dumps(output, indent=4))
     for molecule in output:
         env.render(molecule["smiles"])
