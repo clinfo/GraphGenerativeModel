@@ -62,6 +62,8 @@ for compound in molecule_loader.fetch(molecules_to_process=config.generate):
             break
 
     output = agent.get_output(compound)
+    if output is None:
+        continue
     print(json.dumps(output, indent=4))
     for molecule in output:
         env.render(molecule["smiles"])
