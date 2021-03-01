@@ -49,7 +49,7 @@ elif config.agent == "Random":
 elif config.agent == "PPO2":
     agent = PPO2Agent(env)
 else:
-    raise ValueError(f"Agent: {config.agent} not implemented. Choose from 'MonteCarloTreeSearch', 'Random'")
+    raise ValueError(f"Agent: {config.agent} not implemented. Choose from 'MonteCarloTreeSearch', 'Random', 'PPO2'")
 
 for compound in molecule_loader.fetch(molecules_to_process=config.generate):
     env.set_compound(compound)
@@ -64,7 +64,9 @@ for compound in molecule_loader.fetch(molecules_to_process=config.generate):
         if done:
             break
 
-    output = agent.get_output(info["compound"])
+    output = agent.get_output(info["compound"], reward)
+    if output is None:
+        continue
     print(json.dumps(output, indent=4))
     for molecule in output:
         env.render(molecule["smiles"])

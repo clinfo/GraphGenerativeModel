@@ -37,11 +37,11 @@ class PPO2Agent:
         """
         return self.ppo2.predict(observation)[0]
 
-    def get_output(self, compound: Compound):
+    def get_output(self, compound: Compound, reward: float):
         """
         Returns output in json format
         :param: compound: compound to output
         :return list(dict): output in json format
         """
-        return [{"smiles": compound.clean_smiles()}]
+        return [{"smiles": compound.clean_smiles(), "reward": reward}]
 

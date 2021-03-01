@@ -55,19 +55,11 @@ class MonteCarloTreeSearchAgent:
         :return action: np.array encoding the selected node and bond to add
         """
         compound = info["compound"]
-        if self.selected_node is not None and reward is not None:
-            self.selected_node.get_compound().remove_bond(self.selected_bond)
-            new_node = self.selected_node.add_child(compound)
-            molecule = new_node.compound.clean(preserve=True)
-            new_node.score = -reward
-            new_node.valid = new_node.score < Tree.INFINITY and new_node.depth >= self.minimum_depth and all(
-                _filter.apply(molecule, new_node.score) for _filter in self.filters
-            )
-            self.update(new_node)
+        self.update_tree(compound, reward)
         self.selected_node = self.select_node(self.states_tree)
-        self.selected_bond = self.select_bond(self.selected_node)
+        self.selected_bond_indexes = self.select_bond(self.selected_node)
 
-        return self.encode_to_array(self.selected_node, self.selected_bond)
+        return self.encode_to_array(self.selected_node, self.selected_bond_indexes)
 
     def encode_to_array(self, node: Tree.Node, bond: Tuple[int, int]):
         """
@@ -148,6 +140,24 @@ class MonteCarloTreeSearchAgent:
         source_atom, destination_atom = list(candidate_bonds)[np.random.choice(len(candidate_bonds), 1)[0]]
         return source_atom, destination_atom
 
+    def update_tree(self, compound, reward):
+        """
+        Updates the state tree based on new child compound to add and associated reward.
+        :param compound: compound obtained from last iteration after adding bond.
+        :param reward: reward obtained at last iteration
+        :return None:
+        """
+        if self.selected_node is not None and reward is not None:
+            self.selected_node.get_compound().remove_bond(self.selected_bond_indexes)
+            new_node = self.selected_node.add_child(compound)
+            molecule = new_node.compound.clean(preserve=True)
+            new_node.score = -reward
+            new_node.valid = new_node.score < Tree.INFINITY and new_node.depth >= self.minimum_depth and all(
+                _filter.apply(molecule, new_node.score) for _filter in self.filters
+            )
+            self.update(new_node)
+
+
     def update(self, node: Tree.Node):
         """
         Back-propagation. We update the score and number of times each node was visited. Since we are not
@@ -218,5 +228,13 @@ class MonteCarloTreeSearchAgent:
 
         return solutions
 
-    def get_output(self, compound):
+    def get_output(self, compound, reward):
+        """
+        Returns output based on the current state of the Tree.
+        For details, see README.md (around the description for output_type).
+
+        :param compound: Compound, not actually used but necessary to have same format as other agents.
+        :param reward: float, not actually used but necessary to have same format as other agents.
+        :return: list(dict)
+        """
         return self.prepare_output(self.states_tree)
