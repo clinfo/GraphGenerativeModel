@@ -207,4 +207,11 @@ class MonteCarloTreeSearchAgent:
         return solutions
 
     def get_output(self, compound):
+        """
+        Returns output based on the current state of the Tree.
+        For details, see README.md (around the description for output_type).
+
+        :param compound: Compound, not actually used but necessary to have same format as other agents.
+        :return: list(dict)
+        """
         return self.prepare_output(self.states_tree)
