@@ -55,7 +55,7 @@ class Compound(object):
         Helpful when the Compound is cloned
         :return: None
         """
-        self.initial_bonds = self.bonds
+        self.initial_bonds = self.bonds.copy()
 
     def clean(self, preserve=False):
         """
@@ -79,6 +79,9 @@ class Compound(object):
             molecule.RemoveAtom(atom_index)
 
         return molecule
+
+    def clean_smiles(self, preserve=False):
+        return Chem.MolToSmiles(self.clean(preserve))
 
     def clone(self):
         """
@@ -116,7 +119,9 @@ class CompoundBuilder(object):
         0: Chem.rdchem.BondType.SINGLE,
         1: Chem.rdchem.BondType.DOUBLE,
         2: Chem.rdchem.BondType.TRIPLE,
-        3: Chem.rdchem.BondType.TRIPLE
+        3: Chem.rdchem.BondType.AROMATIC,
+        4: Chem.rdchem.BondType.OTHER,
+        5: "Conjugate",
     }
 
     def __init__(self, bonds, atoms, threshold=0.2):
@@ -146,7 +151,7 @@ class CompoundBuilder(object):
         :param features: atom data
         :return: dict
         """
-        return {
+        result={
             "symbol": self.get_chemical_symbol(features, sample=True),
             "degree": np.argmax(features[44:55]),
             "implicit_valence": np.argmax(features[55:62]),
@@ -156,6 +161,11 @@ class CompoundBuilder(object):
             "is_aromatic": features[69],
             "hydrogen_atoms_count": np.argmax(features[70:75])
         }
+        if len(features)>=76:
+            ring_size=list(range(3,8))
+            result["ring"]=features[75],
+            result["ring_size"]= ring_size[np.argmax(features[76:81])]
+        return result
 
     def get_chemical_symbol(self, features, sample=True):
         """

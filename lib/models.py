@@ -1,5 +1,4 @@
 import logging
-import random
 from typing import List
 
 import numpy as np
@@ -108,7 +107,7 @@ class MonteCarloTreeSearch:
         candidates = nodes_per_level[selected_level]
 
         scores = np.array([abs(node.performance) / node.visits for node in candidates])
-        score_sum = np.sum(scores) + 1e-8
+        score_sum = np.sum(scores)
 
         scores = 1 - scores / score_sum if score_sum > 0 and len(scores) > 1 else [1 / len(scores)] * len(scores)
         scores /= np.sum(scores)  # normalize outputs (so they add up to 1)
@@ -148,7 +147,7 @@ class MonteCarloTreeSearch:
             if len(neighboring_bonds) > 0:
                 candidate_bonds = neighboring_bonds
 
-        source_atom, destination_atom = random.sample(candidate_bonds, 1)[0]
+        source_atom, destination_atom = list(candidate_bonds)[np.random.choice(len(candidate_bonds), 1)[0]]
         target_bond_index = molecule.AddBond(int(source_atom), int(destination_atom), BondType.UNSPECIFIED)
         target_bond = molecule.GetBondWithIdx(target_bond_index - 1)
 
