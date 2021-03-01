@@ -61,7 +61,7 @@ for compound in molecule_loader.fetch(molecules_to_process=config.generate):
         if done:
             break
 
-    output = agent.get_output(compound)
+    output = agent.get_output(compound, reward)
     if output is None:
         continue
     print(json.dumps(output, indent=4))

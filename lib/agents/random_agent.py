@@ -24,10 +24,11 @@ class RandomAgent:
 		"""
 		return compound, self.action_space.sample()
 
-	def get_output(self, compound: Compound):
+	def get_output(self, compound: Compound, reward: float):
 		"""
 		Returns output in json format
 		:param: compound: compound to output
+        :param: reward: float reward for the input compound
 		:return list(dict): output in json format
 		"""
-		return [{"smiles": compound.clean_smiles()}]
+		return [{"smiles": compound.clean_smiles(), "reward": reward}]
