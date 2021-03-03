@@ -44,4 +44,3 @@ class PPO2Agent:
         :return list(dict): output in json format
         """
         return [{"smiles": compound.clean_smiles(), "reward": reward}]
-

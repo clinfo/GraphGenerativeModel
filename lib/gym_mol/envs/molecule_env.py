@@ -131,7 +131,7 @@ class MoleculeEnv(gym.Env):
     def _reset_action_space(self):
         """
         Sets action space based on initial compound.
-        Action space is a discrete space of length the number of potential bonds of the initial compound.
+        Action space contains: choice of bond to add, choice of compound to add it to.
         :param None:
         :return None:
         """
