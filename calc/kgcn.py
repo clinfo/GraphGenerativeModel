@@ -91,8 +91,13 @@ class Calculator(AbstractCalculator):
         self.model_path=None
         if "kgcn_model_py" in config:
             self.model_mod_name=config["kgcn_model_py"]
+        if getattr(config,"kgcn_model_py"):
+            self.model_mod_name=config.kgcn_model_py
         if "kgcn_model" in config:
+            print("py:",config["kgcn_model"])
             self.model_path=config["kgcn_model"]
+        if getattr(config,"kgcn_model"):
+            self.model_path=config.kgcn_model
 
     def model_build(self, info):
         config=get_default_config()
