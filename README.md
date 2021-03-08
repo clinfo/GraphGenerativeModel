@@ -19,11 +19,13 @@ conda activate graph_mcts
 ## File Structure
 
 Relevant files:
+- `lib/agents/` - Contains agents to interact with the molecule generation environment
 - `lib/calculators.py` - Reward/Cost calculation tools
 - `lib/config.py` - Configuration management scripts
 - `lib/data_providers.py` - Loads, prepares and serves the molecules from the input .jbl files
 - `lib/data_structures.py` - Data models and resources for compounds, nodes, and trees
 - `lib/filters.py` - Filter implementations
+- `lib/gym_mol/` - Defines molecule generation environment based on open ai gym
 - `lib/helpers.py` - Helper classes (ie: drawing molecules)
 - `lib/models.py` - Monte Carlo Tree Search implementation
 - `config.json` - Sample configuration file
@@ -40,6 +42,7 @@ To run the code, you will need to have a configuration file (in JSON format). An
 The options are (details for each option can be found below):
 
 - **dataset**: path to the dataset file (jbl file, output of GCN-K) (mandatory)
+- **agent**: Agent to use when using open ai gym environment (default: MonteCarloTreeSearch)
 - **generate**: how many molecules to generate (default: 10) 
 - **threshold**: Minimum threshold for potential bonds (default: 0.15)
 - **monte_carlo_iterations**: How many times to iterate over the tree (default: 1000)
@@ -50,6 +53,7 @@ The options are (details for each option can be found below):
 - **filters**: If any of these filters are met, the cost is set to infinity. Multiple options can be specified. Options: non_zero_reward, positive_reward, molecular_weight (default: ["positive_reward","molecular_weight"])
 - **draw**: If specified, will draw the molecules to this folder (default: null)
 - **logging**: Logging level. Smaller number means more logs (use increments of 10, between 10 and 50) (default: 50)
+- **seed**: Random seed (for reproducibility, default: null)
 
 
 ## Usage
@@ -57,6 +61,11 @@ The options are (details for each option can be found below):
 `run.py` is the entry point for the optimizer. You can use it like this:
 ```bash
 python run.py {config_file}
+```
+
+To use the open ai gym based implementation, use the `run_gym.py` script:
+```bash
+python run_gym.py {config_file}
 ```
 
 ### threshold
