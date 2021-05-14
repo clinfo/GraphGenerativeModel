@@ -2,22 +2,12 @@ import logging
 from typing import List
 
 import numpy as np
-from rdkit import Chem
-from rdkit.Chem.rdchem import BondType
 
-from lib.calculators import AbstractCalculator
-from lib.data_providers import MoleculeLoader
 from lib.data_structures import Tree, Compound
 from lib.filters import AbstractFilter
 
 
-class MonteCarloTreeSearch:
-
-    """
-    Bonds that are tested. During expansion, the reward for each
-    bond type is calculated, and the lowest one is selected.
-    """
-    AVAILABLE_BONDS = [Chem.rdchem.BondType.SINGLE, Chem.rdchem.BondType.DOUBLE, Chem.rdchem.BondType.TRIPLE]
+class MonteCarloTreeSearchAgent:
 
     """Available Output Types"""
     OUTPUT_FITTEST = "fittest"
@@ -25,66 +15,46 @@ class MonteCarloTreeSearch:
     OUTPUT_PER_LEVEL = "per_level"
 
     def __init__(
-            self, data_provider: MoleculeLoader, minimum_depth, output_type,
-            calculator: AbstractCalculator, filters: List[AbstractFilter], breath_to_depth_ratio=0
+            self, minimum_depth: int, output_type: str, filters: List[AbstractFilter], breath_to_depth_ratio: float=0
     ):
         """
-        :param data_provider: MoleculeLoader
         :param minimum_depth: from the input parameters (see README.md for details)
         :param output_type: from the input parameters (see README.md for details)
-        :param calculator: from the input parameters (see README.md for details)
         :param filters: from the input parameters (see README.md for details)
         :param breath_to_depth_ratio: from the input parameters (see README.md for details)
         """
-        self.data_provider = data_provider
         self.minimum_depth = minimum_depth
         self.output_type = output_type
         self.breath_to_depth_ratio = breath_to_depth_ratio
-        self.calculator = calculator
         self.filters = filters
 
-    def start(self, molecules_to_process=10, iterations_per_molecule=100):
+    def reset(self, compound: Compound):
         """
-        Creates an iterator that loads one molecule and passes it for processing.
-
-        :param molecules_to_process: How many molecules from the dataset to process?
-        :param iterations_per_molecule: How many times to iterate over a single molecule?
-        :return: an iterator
+        Resets the MCTS agent by reinitializing the tree from a root compound.
+        :param compound: Compound
+        :return: None
         """
-        for compound in self.data_provider.fetch(molecules_to_process=molecules_to_process):
-            yield self.apply(compound, iterations=iterations_per_molecule)
+        self.selected_node = None
+        self.states_tree = Tree(compound)
+        self.init_compound = compound.clone()
 
-    def apply(self, compound: Compound, iterations: int):
+    def act(self, compound: Compound, reward: float):
         """
-        Optimize a molecule (that is, run the Monte Carlo Tree Search)
-        :return: list(dict)
+        Performs two operations.
+        First, updates the state tree based on new child compound and reward from last iteration.
+        Second, selects a node and bond to add to it for the next iteration.
+        :param compound: compound obtained from last iteration after adding bond.
+        :param reward: reward obtained at last iteration
+        :return Compound: compound to process
+        :return Tuple(int, int): bond to add
         """
-        states_tree = Tree(compound)
-        logging.info("Processing now: {}".format(compound.get_smiles()))
-        logging.info("Bonds Count: {}".format(compound.bonds_count()))
-        logging.info("Atoms Count: {}".format(compound.get_molecule().GetNumAtoms()))
+        self.update_tree(compound, reward)
+        self.selected_node = self.select_node(self.states_tree)
+        self.selected_bond_indexes = self.select_bond(self.selected_node)
 
-        for _ in range(iterations):
-            logging.debug("Iteration {}/{}".format(_ + 1, iterations))
-            selection = self.select(states_tree)
-            if selection is None:
-                break
+        return self.selected_node.get_compound().clone(), self.selected_bond_indexes
 
-            new_node = self.expand(selection)
-
-            if new_node is None:
-                logging.debug("Lead node reached!")
-                continue
-
-            score = self.simulate(new_node)
-            logging.debug("Score: {}".format(score))
-
-            self.update(new_node)
-
-        states_tree.print_tree()
-        return self.prepare_output(states_tree)
-
-    def select(self, tree: Tree):
+    def select_node(self, tree: Tree):
         """
         The selection phase. See README.md for details. (in details on breath_to_depth_ratio)
         :param tree: Tree
@@ -114,7 +84,7 @@ class MonteCarloTreeSearch:
 
         return np.random.choice(candidates, 1, p=scores)[0]
 
-    def expand(self, node: Tree.Node):
+    def select_bond(self, node: Tree.Node):
         """
         In the expansion phase we loop over and calculate the reward for each possible bond type, then select the
         lowest one. The new molecule is then added as a child node to the input node. The bond cache in the compounds
@@ -132,7 +102,7 @@ class MonteCarloTreeSearch:
 
         if len(candidate_bonds) == 0:
             logging.debug("All bonds have been used.")
-            return None
+            return None, None
 
         if len(current_bonds) > 0:
             neighboring_bonds = []
@@ -140,47 +110,31 @@ class MonteCarloTreeSearch:
             for bond in current_bonds:
                 candidate_atoms.add(bond.GetBeginAtomIdx())
 
-            for source_atom, destination_atom in available_bonds:
+            for source_atom, destination_atom in candidate_bonds:
                 if source_atom in candidate_atoms or destination_atom in candidate_atoms:
                     neighboring_bonds.append((source_atom, destination_atom))
 
             if len(neighboring_bonds) > 0:
                 candidate_bonds = neighboring_bonds
-
         source_atom, destination_atom = list(candidate_bonds)[np.random.choice(len(candidate_bonds), 1)[0]]
-        target_bond_index = molecule.AddBond(int(source_atom), int(destination_atom), BondType.UNSPECIFIED)
-        target_bond = molecule.GetBondWithIdx(target_bond_index - 1)
+        return source_atom, destination_atom
 
-        per_bond_rewards = {}
-        for bond_type in self.AVAILABLE_BONDS:
-            target_bond.SetBondType(bond_type)
-            per_bond_rewards[bond_type] = self.calculate_reward(compound)
-
-        target_bond.SetBondType(min(per_bond_rewards, key=per_bond_rewards.get))
-        node.get_compound().remove_bond((source_atom, destination_atom))
-
-        compound.remove_bond((source_atom, destination_atom))
-        compound.flush_bonds()
-
-        child = node.add_child(compound)
-        return child
-
-    def simulate(self, node: Tree.Node):
+    def update_tree(self, compound, reward):
         """
-        Randomly setting all remaining bonds will almost always lead to an invalid molecule. Thus, we calculate
-        the reward based on the current molecule structure (which is valid) instead of performing a roll-out.
-        :param node: Tree.Node
-        :return: double
+        Updates the state tree based on new child compound to add and associated reward.
+        :param compound: compound obtained from last iteration after adding bond.
+        :param reward: reward obtained at last iteration
+        :return None:
         """
-        logging.debug("Simulating...")
-        node.score = self.calculate_reward(node.compound)
-
-        molecule = node.compound.clean(preserve=True)
-        node.valid = node.score < np.Infinity and node.depth >= self.minimum_depth and all(
-            _filter.apply(molecule, node.score) for _filter in self.filters
-        )
-
-        return node.score
+        if self.selected_node is not None and reward is not None:
+            self.selected_node.get_compound().remove_bond(self.selected_bond_indexes)
+            new_node = self.selected_node.add_child(compound)
+            molecule = new_node.compound.clean(preserve=True)
+            new_node.score = reward
+            new_node.valid = new_node.score < np.Infinity and new_node.depth >= self.minimum_depth and all(
+                _filter.apply(molecule, new_node.score) for _filter in self.filters
+            )
+            self.update(new_node)
 
     def update(self, node: Tree.Node):
         """
@@ -199,33 +153,6 @@ class MonteCarloTreeSearch:
             node.parent.performance += node.performance
             node.parent.visits += 1
             node = node.parent
-
-    def calculate_reward(self, compound: Compound):
-        """
-        Calculate the reward of the compound based on the requested force field.
-        If the molecule is not valid, the reward will be infinity.
-
-        :param compound: Compound
-        :return: float
-        """
-        try:
-            molecule = compound.clean(preserve=True)
-            smiles = Chem.MolToSmiles(molecule)
-
-            if Chem.MolFromSmiles(smiles) is None:
-                raise ValueError("Invalid molecule: {}".format(smiles))
-
-            molecule.UpdatePropertyCache()
-            reward = self.calculator.calculate(molecule)
-            if np.isnan(reward):
-                raise ValueError("NaN reward encountered: {}".format(smiles))
-
-            logging.debug("{} : {} : {:.6f}".format(compound.get_smiles(), Chem.MolToSmiles(molecule), reward))
-            return reward
-
-        except (ValueError, RuntimeError, AttributeError) as e:
-            logging.debug("[INVALID REWARD]: {} - {}".format(compound.get_smiles(), str(e)))
-            return np.Infinity
 
     def prepare_output(self, tree: Tree):
         """
@@ -272,9 +199,20 @@ class MonteCarloTreeSearch:
         solutions = []
         for node in nodes:
             solutions.append({
-                "smiles": Chem.MolToSmiles(node.get_compound().clean()),
+                "smiles": node.get_compound().clean_smiles(),
                 "depth": node.depth,
                 "score": node.score
             })
 
         return solutions
+
+    def get_output(self, compound: Compound, reward: float):
+        """
+        Returns output based on the current state of the Tree.
+        For details, see README.md (around the description for output_type).
+
+        :param compound: Compound, not actually used but necessary to have same format as other agents.
+        :param reward: float, not actually used but necessary to have same format as other agents.
+        :return: list(dict)
+        """
+        return self.prepare_output(self.states_tree)
