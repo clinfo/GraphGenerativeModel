@@ -27,6 +27,8 @@ class MonteCarloTreeSearchAgent:
         self.output_type = output_type
         self.breath_to_depth_ratio = breath_to_depth_ratio
         self.filters = filters
+        self.c = 0.8 # Explorative hyperparameter
+        self.list_reward = []
 
     def reset(self, compound: Compound):
         """
@@ -38,7 +40,7 @@ class MonteCarloTreeSearchAgent:
         self.states_tree = Tree(compound)
         self.init_compound = compound.clone()
 
-    def act(self, compound: Compound, reward: float):
+    def act(self, compound: Compound, reward:float):
         """
         Performs two operations.
         First, updates the state tree based on new child compound and reward from last iteration.
@@ -49,75 +51,70 @@ class MonteCarloTreeSearchAgent:
         :return Tuple(int, int): bond to add
         """
         self.update_tree(compound, reward)
-        self.selected_node = self.select_node(self.states_tree)
-        self.selected_bond_indexes = self.select_bond(self.selected_node)
+        self.selected_node = self.tree_policy()
+        self.selected_bond_indexes = self.select_unvisited_bond(self.selected_node)
 
         return self.selected_node.get_compound().clone(), self.selected_bond_indexes
 
-    def select_node(self, tree: Tree):
+    def tree_policy(self):
         """
-        The selection phase. See README.md for details. (in details on breath_to_depth_ratio)
-        :param tree: Tree
-        :return: Tree.Node
+        Walk through the tree and select one of the node to expand.
+        If the node selected can't be expended, another node is selected randomly
+        from all the node that can be expanded in the tree.
+        :return Tree.Node: the node selected to expand
         """
-        nodes_per_level = tree.group()
-        levels = list(nodes_per_level.keys())
-        ratio = abs(self.breath_to_depth_ratio)
+        node = self.states_tree.root
+        while node.is_expended() and not node.is_terminal():
+            node = self.select_next_node(node)
+        if node.is_terminal():
+            # Increase score to avoid looping on this node
+            node.standardize_score *= 1.3
+            self.update(node)
+            return self.select_unvisited_node()
+        return node
 
-        if ratio == 0:
-            ratio = 1000000
-
-        probabilities = np.random.dirichlet(np.ones(len(levels)) * ratio, 1)
-        probabilities = np.sort(probabilities[0])
-
-        if self.breath_to_depth_ratio < 0:
-            probabilities = np.flip(probabilities)
-
-        selected_level = np.random.choice(levels, 1, p=probabilities)[0]
-        candidates = nodes_per_level[selected_level]
-
-        scores = np.array([abs(node.performance) / node.visits for node in candidates])
-        score_sum = np.sum(scores)
-
-        scores = 1 - scores / score_sum if score_sum > 0 and len(scores) > 1 else [1 / len(scores)] * len(scores)
-        scores /= np.sum(scores)  # normalize outputs (so they add up to 1)
-
-        return np.random.choice(candidates, 1, p=scores)[0]
-
-    def select_bond(self, node: Tree.Node):
+    def select_next_node(self, node: Tree.Node):
         """
-        In the expansion phase we loop over and calculate the reward for each possible bond type, then select the
-        lowest one. The new molecule is then added as a child node to the input node. The bond cache in the compounds
-        is also updated accordingly to reflect the changes.
-
-        :param node: Tree.Node (from selection)
-        :return: Tree.Node (new child)
+        This function is the poilicy apply to select a children node
+        :return Tree.Node: Node selected by walking through the tree
         """
-        compound = node.get_compound().clone()
-        molecule = compound.get_molecule()
+        def ucb(node):
+            """
+            Strategy to select the node used by unitMCTS (https://arxiv.org/pdf/2010.16399.pdf)
+            """
+            return node.performance/node.visits - self.c * np.sqrt(np.log(node.parent.visits) / node.visits)
 
-        available_bonds = node.get_compound().get_bonds()
-        current_bonds = molecule.GetBonds()
-        candidate_bonds = available_bonds
+        performance = [ucb(child) for child in node.children]
+        id_chosen_node = np.argmin(performance)
+        return node.children[id_chosen_node]
 
-        if len(candidate_bonds) == 0:
-            logging.debug("All bonds have been used.")
-            return None, None
+    def select_unvisited_node(self):
+        """
+        Select a pseudo random node that can be extended form all the node in the
+        tree.
+        The deeper the node the higher is chance to be selected.
+        :return Tree.Node: Node selected to be expanded.
+        """
+        # Retrieve unvisited node
+        all_node = self.states_tree.flatten()
+        unvisited_node = [n for n in all_node if not n.is_expended()]
+        # Select one
+        performances = [n.depth / n.performance for n in unvisited_node]
+        performances = performances / np.sum(performances)
+        id_node = np.random.choice(range(len(unvisited_node)), p=performances)
+        return unvisited_node[id_node]
 
-        if len(current_bonds) > 0:
-            neighboring_bonds = []
-            candidate_atoms = set()
-            for bond in current_bonds:
-                candidate_atoms.add(bond.GetBeginAtomIdx())
-
-            for source_atom, destination_atom in candidate_bonds:
-                if source_atom in candidate_atoms or destination_atom in candidate_atoms:
-                    neighboring_bonds.append((source_atom, destination_atom))
-
-            if len(neighboring_bonds) > 0:
-                candidate_bonds = neighboring_bonds
-        source_atom, destination_atom = list(candidate_bonds)[np.random.choice(len(candidate_bonds), 1)[0]]
-        return source_atom, destination_atom
+    def select_unvisited_bond(self, node: Tree.Node):
+        """
+        Select randomly a bond to add to the molecule from the neighboring bond.
+        Remove the selected bond from the list of unvisited bond.
+        :return Tuple(int, int): bond selected
+        """
+        possible_bonds = node.unexplore_neighboring_bonds
+        id_bond = np.random.choice(range(len(possible_bonds)))
+        selected_bond = possible_bonds.pop(id_bond)
+        node.unexplore_neighboring_bonds = possible_bonds
+        return selected_bond
 
     def update_tree(self, compound, reward):
         """
@@ -127,11 +124,17 @@ class MonteCarloTreeSearchAgent:
         :return None:
         """
         if self.selected_node is not None and reward is not None:
-            self.selected_node.get_compound().remove_bond(self.selected_bond_indexes)
             new_node = self.selected_node.add_child(compound)
+            # Update neighboring bonds to assure consistency in the next selection
+            new_node.compound.compute_neighboring_bonds()
             molecule = new_node.compound.clean(preserve=True)
             new_node.score = reward
-            new_node.valid = new_node.score < np.Infinity and new_node.depth >= self.minimum_depth and all(
+            # Standardisation of the score to enable the exploration term to be of use
+            # during the selection
+            if reward < Tree.INFINITY:
+                self.list_reward.append(reward)
+            new_node.standardize_score = reward / np.mean(self.list_reward)
+            new_node.valid = new_node.score < Tree.INFINITY and new_node.depth >= self.minimum_depth and all(
                 _filter.apply(molecule, new_node.score) for _filter in self.filters
             )
             self.update(new_node)
@@ -143,7 +146,7 @@ class MonteCarloTreeSearchAgent:
         :param node: Tree.Node
         :return: None
         """
-        node.performance = node.score
+        node.performance = node.standardize_score
         node.visits += 1
 
         if node.performance > Tree.INFINITY:

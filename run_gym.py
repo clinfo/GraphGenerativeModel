@@ -7,7 +7,7 @@ import lib.gym_mol
 
 # For old version of tensorflow and rdkit
 # if you don't use tensorflow and kgcn, please comment out this line
-import tensorflow as tf
+# import tensorflow as tf
 
 
 from rdkit import RDLogger
@@ -35,7 +35,7 @@ reward_calculator = CalculatorFactory.create(config.reward_calculator, config.re
 filters = [FilterFactory.create(filter_) for filter_ in config.filters]
 
 env = gym.make("molecule-v0")
-env.initialize(reward_calculator, config.draw)
+env.initialize(reward_calculator, config.max_mass, config.draw)
 
 if config.agent == "MonteCarloTreeSearch":
     agent = MonteCarloTreeSearchAgent(
@@ -56,6 +56,7 @@ for compound in molecule_loader.fetch(molecules_to_process=config.generate):
     reward = 0
     done = False
     for k in range(config.monte_carlo_iterations):
+        logging.debug(f"Iteration {k}/{config.monte_carlo_iterations}, Reward {reward}")
         compound, action = agent.act(compound, reward)
         compound, reward, done, info = env.step(compound, action)
         if done:

@@ -27,7 +27,7 @@ class MolecularWeightFilter(AbstractFilter):
 
     def apply(self, mol: Chem.Mol, reward: float) -> bool:
         mol.UpdatePropertyCache()
-        return 300 < ExactMolWt(mol) < 500
+        return 200 < ExactMolWt(mol) < 500
 
 
 class FilterFactory:

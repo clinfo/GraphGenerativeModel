@@ -18,6 +18,7 @@ class Config(NamedTuple):
     minimum_output_depth: Optional[int] = 20
     output_type: Optional[str] = MonteCarloTreeSearchAgent.OUTPUT_FITTEST
     breath_to_depth_ratio: Optional[float] = 1
+    max_mass: int = 100
 
     reward_calculator: Optional[str] = CalculatorFactory.COMPOUND_ENERGY_BABEL_MMFF
     reward_weights: Optional[List[float]] = None

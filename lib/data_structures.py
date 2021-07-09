@@ -3,6 +3,7 @@ from collections import defaultdict
 
 import numpy as np
 from rdkit import Chem
+from rdkit.Chem.Descriptors import ExactMolWt
 
 
 class Compound(object):
@@ -17,6 +18,7 @@ class Compound(object):
         self.molecule = molecule
         self.bonds = bonds
         self.initial_bonds = bonds.copy()
+        self.neighboring_bonds = self.compute_neighboring_bonds()
 
     def get_smiles(self):
         return Chem.MolToSmiles(self.molecule)
@@ -45,6 +47,8 @@ class Compound(object):
         :return: None
         """
         self.bonds.remove(bond)
+        # Need to recompute neighboring_bonds for consistency
+        self.compute_neighboring_bonds()
 
     def bonds_count(self):
         return len(self.bonds)
@@ -90,6 +94,80 @@ class Compound(object):
         """
         molecule = Chem.RWMol(self.molecule)
         return Compound(molecule, self.initial_bonds.copy())
+
+    def compute_neighboring_bonds(self):
+        """
+        Compute neighboring bonds of an node in the tree and store it in the
+        neighboring_bonds variable.
+        In the case of a compound with no bonds, return all possible bonds
+        :return: list
+        """
+        self.remove_full_atom_other_bond()
+        molecule = self.get_molecule()
+
+        candidate_bonds = self.get_bonds()
+        current_bonds = molecule.GetBonds()
+
+        if len(candidate_bonds) == 0:
+            logging.debug("All bonds have been used.")
+            return []
+
+        if len(current_bonds) > 0:
+            self.neighboring_bonds = []
+            candidate_atoms = set()
+            for bond in current_bonds:
+                candidate_atoms.add(bond.GetBeginAtomIdx())
+
+            for source_atom, destination_atom in candidate_bonds:
+                if source_atom in candidate_atoms or destination_atom in candidate_atoms:
+                    self.neighboring_bonds.append((source_atom, destination_atom))
+        # root case
+        else:
+            self.neighboring_bonds = list(candidate_bonds)
+
+        return self.neighboring_bonds
+
+    def get_mass(self):
+        """
+        :return float: mass of the molecule
+        """
+        mol = self.clean(preserve=True)
+        # mol.UpdatePropertyCache()
+        # return ExactMolWt(mol)
+        atoms = mol.GetAtoms()
+        return np.sum([a.GetMass() for a in atoms])
+
+    def remove_full_atom_other_bond(self):
+        """
+        Remove all bonds that are link to an atom which have all its possible bond
+        used.
+        """
+        full_atom_id = self.get_full_atoms_id()
+        bond_to_remove = []
+        for bond in self.bonds:
+            for a in full_atom_id:
+                if a in bond:
+                    bond_to_remove.append(bond)
+        [self.bonds.remove(b) for b in bond_to_remove]
+
+    def get_full_atoms_id(self):
+        """
+        Return all atom id of the molecule which can't have any additional bond
+        :return List(int): Id of the atoms
+        """
+        return [i for i, a in enumerate(self.molecule.GetAtoms()) if self.is_atom_full(a)]
+
+    def is_atom_full(self, atom):
+        """
+        Compute if an atom can receive another bond.
+        :return int:
+        """
+        atom.UpdatePropertyCache()
+        # if atom.GetImplicitValence() == -1:
+        #     return False
+        valence = atom.GetTotalValence()
+        used = np.sum([b.GetValenceContrib(atom) for b in atom.GetBonds()])
+        return valence == used
 
 
 class CompoundBuilder(object):
@@ -244,14 +322,15 @@ class Tree(object):
             :param parent: parent Tree.Node
             """
             self.compound = compound
+            self.unexplore_neighboring_bonds = self.get_compound().compute_neighboring_bonds()
             self.parent = parent
             self.children = []
 
             self.visits = 1
             self.score = 0
+            self.standardize_score = 0
             self.performance = 0
             self.depth = 0
-            
             self.valid = False
 
         def add_child(self, compound):
@@ -261,11 +340,17 @@ class Tree(object):
             self.children.append(child)
             return child
 
+        def is_expended(self):
+            return len(self.unexplore_neighboring_bonds) == 0
+
+        def is_terminal(self):
+            return len(self.get_compound().neighboring_bonds) == 0
+
         def is_leaf_node(self):
             return len(self.children) == 0
 
         def get_compound(self):
-            return self.compound
+            return self.compound.clone()
 
         def get_smiles(self):
             return self.compound.get_smiles()
