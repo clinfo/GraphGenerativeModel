@@ -162,12 +162,23 @@ class Compound(object):
         Compute if an atom can receive another bond.
         :return int:
         """
+        return self.get_free_valence(atom) == 0
+
+    def get_free_valence(self, atom):
         atom.UpdatePropertyCache()
-        # if atom.GetImplicitValence() == -1:
-        #     return False
         valence = atom.GetTotalValence()
         used = np.sum([b.GetValenceContrib(atom) for b in atom.GetBonds()])
-        return valence == used
+        return valence - used
+
+    def filter_bond_type(self, source_atom_id, destination_atom_id, available_bond_type):
+        source_atom = self.molecule.GetAtomWithIdx(source_atom_id)
+        destination_atom = self.molecule.GetAtomWithIdx(destination_atom_id)
+        valence_possible = min([self.get_free_valence(source_atom), self.get_free_valence(destination_atom)])
+        for i, bond in enumerate(available_bond_type):
+            if valence_possible < int(bond):
+                available_bond_type.pop(i)
+        return available_bond_type
+
 
 
 class CompoundBuilder(object):
@@ -328,7 +339,6 @@ class Tree(object):
 
             self.visits = 1
             self.score = 0
-            self.standardize_score = 0
             self.performance = 0
             self.depth = 0
             self.valid = False
@@ -341,6 +351,9 @@ class Tree(object):
             return child
 
         def is_expended(self):
+            """
+            Does all children node are created ?
+            """
             return len(self.unexplore_neighboring_bonds) == 0
 
         def is_terminal(self):

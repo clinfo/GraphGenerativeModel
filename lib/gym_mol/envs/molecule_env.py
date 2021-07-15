@@ -55,9 +55,11 @@ class MoleculeEnv(gym.Env):
         elif (source_atom, destination_atom) not in compound.get_bonds():
             logging.debug("Selected bond is already in compound")
             reward = np.Infinity
+            # reward = 0
         else:
             compound = self.add_bond(compound, source_atom, destination_atom)
-            reward = self.rollout(compound)
+            rollout_compound = self.rollout(compound)
+            reward = self.calculate_reward(rollout_compound)
         done = self._is_done(compound, reward)
 
         info = {}
@@ -76,16 +78,18 @@ class MoleculeEnv(gym.Env):
         target_bond_index = molecule.AddBond(int(source_atom), int(destination_atom), BondType.UNSPECIFIED)
         target_bond = molecule.GetBondWithIdx(target_bond_index - 1)
 
+        avaible_bond = compound.filter_bond_type(int(source_atom), int(destination_atom), self.AVAILABLE_BONDS)
+
         if select_type=="best":
             per_bond_rewards = {}
-            for bond_type in self.AVAILABLE_BONDS:
+            for bond_type in avaible_bond:
                 target_bond.SetBondType(bond_type)
                 per_bond_rewards[bond_type] = self.calculate_reward(compound)
 
             target_bond.SetBondType(min(per_bond_rewards, key=per_bond_rewards.get))
 
         elif select_type=="random":
-            bond_type = self.AVAILABLE_BONDS[np.random.choice(self.AVAILABLE_BONDS)]
+            bond_type = avaible_bond[np.random.choice(avaible_bond)]
             target_bond.SetBondType(bond_type)
         else:
             raise ValueError(f"select_type must be best or random given: {select_type}")
@@ -95,26 +99,6 @@ class MoleculeEnv(gym.Env):
         return compound
 
     def rollout(self, compound: Compound):
-        """
-        In a rollout phase, the actual rollout is computed multiple times.
-        For each rollout, the reward is computed.
-        The final reward will be the mean of valid reward or the infinity if no
-        valid molecule has been generated.
-        :param compound: Compound
-        :return float: Computed reward
-        """
-        list_reward = []
-        for i in range(10):
-            reward = self.calculate_reward(self.generate_rollout(compound))
-            if reward < Tree.INFINITY:
-                list_reward.append(reward)
-        if len(list_reward) == 0:
-            logging.debug("[INVALID REWARD]")
-            return Tree.INFINITY
-        else:
-            return np.mean(list_reward)
-
-    def generate_rollout(self, compound):
         """
         Compute one rollout step, where a bond is added until the maximum mass is
         reached or there is no more bond to be added.
@@ -156,8 +140,9 @@ class MoleculeEnv(gym.Env):
           return reward
 
         except (ValueError, RuntimeError, AttributeError) as e:
-        #   logging.debug("[INVALID REWARD]: {} - {}".format(compound.get_smiles(), str(e)))
-          return Tree.INFINITY #np.Infinity
+          logging.debug("[INVALID REWARD]: {} - {}".format(compound.get_smiles(), str(e)))
+          return np.Infinity
+        #   return 0
 
 
     def _is_done(self, compound: Compound, reward: float):

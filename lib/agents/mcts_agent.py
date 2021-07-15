@@ -67,8 +67,9 @@ class MonteCarloTreeSearchAgent:
         while node.is_expended() and not node.is_terminal():
             node = self.select_next_node(node)
         if node.is_terminal():
-            # Increase score to avoid looping on this node
-            node.standardize_score *= 1.3
+            # Decrease score to avoid looping on this node
+            # node.score *= 0.7
+            node.score *= 1.3
             self.update(node)
             return self.select_unvisited_node()
         return node
@@ -82,10 +83,12 @@ class MonteCarloTreeSearchAgent:
             """
             Strategy to select the node used by unitMCTS (https://arxiv.org/pdf/2010.16399.pdf)
             """
+            # return node.performance/node.visits + self.c * np.sqrt(np.log(node.parent.visits) / node.visits)
             return node.performance/node.visits - self.c * np.sqrt(np.log(node.parent.visits) / node.visits)
 
         performance = [ucb(child) for child in node.children]
         id_chosen_node = np.argmin(performance)
+        # id_chosen_node = np.argmax(performance)
         return node.children[id_chosen_node]
 
     def select_unvisited_node(self):
@@ -100,6 +103,7 @@ class MonteCarloTreeSearchAgent:
         unvisited_node = [n for n in all_node if not n.is_expended()]
         # Select one
         performances = [n.depth / n.performance for n in unvisited_node]
+        # performances = [n.performance * n.depth / n.visits for n in unvisited_node]
         performances = performances / np.sum(performances)
         id_node = np.random.choice(range(len(unvisited_node)), p=performances)
         return unvisited_node[id_node]
@@ -129,11 +133,7 @@ class MonteCarloTreeSearchAgent:
             new_node.compound.compute_neighboring_bonds()
             molecule = new_node.compound.clean(preserve=True)
             new_node.score = reward
-            # Standardisation of the score to enable the exploration term to be of use
-            # during the selection
-            if reward < Tree.INFINITY:
-                self.list_reward.append(reward)
-            new_node.standardize_score = reward / np.mean(self.list_reward)
+            # new_node.valid = new_node.score == 0 and new_node.depth >= self.minimum_depth and all(
             new_node.valid = new_node.score < Tree.INFINITY and new_node.depth >= self.minimum_depth and all(
                 _filter.apply(molecule, new_node.score) for _filter in self.filters
             )
@@ -146,14 +146,16 @@ class MonteCarloTreeSearchAgent:
         :param node: Tree.Node
         :return: None
         """
-        node.performance = node.standardize_score
+        performance = node.score
+        node.performance = performance
         node.visits += 1
 
         if node.performance > Tree.INFINITY:
+        # if node.performance == 0:
             return
 
         while node.depth > 0:
-            node.parent.performance += node.performance
+            node.parent.performance += performance
             node.parent.visits += 1
             node = node.parent
 
