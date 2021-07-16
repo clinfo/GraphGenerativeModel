@@ -41,6 +41,20 @@ class Compound(object):
         """
         return self.bonds
 
+    def get_atoms(self, clean=False):
+        if clean:
+            return self.clean(preserve=True).GetAtoms()
+        else:
+            atom_ids = set()
+            for bond in  self.molecule.GetBonds():
+                atom_ids.add(bond.GetBeginAtomIdx())
+                atom_ids.add(bond.GetEndAtomIdx())
+            return set([self.molecule.GetAtomWithIdx(id) for id in atom_ids])
+
+    def get_atoms_id(self):
+        atoms = self.get_atoms()
+        return set([a.GetIdx() for a in atoms])
+
     def remove_bond(self, bond):
         """
         :param bond: (int, int)
@@ -48,7 +62,7 @@ class Compound(object):
         """
         self.bonds.remove(bond)
         # Need to recompute neighboring_bonds for consistency
-        self.compute_neighboring_bonds()
+        self.neighboring_bonds = self.compute_neighboring_bonds()
 
     def bonds_count(self):
         return len(self.bonds)
@@ -109,7 +123,7 @@ class Compound(object):
         current_bonds = molecule.GetBonds()
 
         if len(candidate_bonds) == 0:
-            logging.debug("All bonds have been used.")
+            # logging.debug("All bonds have been used.")
             return []
 
         if len(current_bonds) > 0:
@@ -117,7 +131,7 @@ class Compound(object):
             candidate_atoms = set()
             for bond in current_bonds:
                 candidate_atoms.add(bond.GetBeginAtomIdx())
-
+                candidate_atoms.add(bond.GetEndAtomIdx())
             for source_atom, destination_atom in candidate_bonds:
                 if source_atom in candidate_atoms or destination_atom in candidate_atoms:
                     self.neighboring_bonds.append((source_atom, destination_atom))
@@ -357,7 +371,10 @@ class Tree(object):
             return len(self.unexplore_neighboring_bonds) == 0
 
         def is_terminal(self):
-            return len(self.get_compound().neighboring_bonds) == 0
+            if self.is_expended():
+                return len(self.children) == 0
+            else:
+                return len(self.get_compound().neighboring_bonds) == 0
 
         def is_leaf_node(self):
             return len(self.children) == 0
@@ -491,3 +508,24 @@ class Tree(object):
 
         for child in node.children:
             self.print_tree(child)
+
+    def find_duplicate(self, compound, depth):
+        # Find nodes with the same atoms
+        level_nodes = self.group()[depth + 1]
+        nodes = [n for n in level_nodes if n.compound.get_atoms_id() == compound.get_atoms_id()]
+        nodes_output = nodes.copy()
+        # Keep node with the same valence on each atom
+        for atom_id in compound.get_atoms_id():
+            atom = compound.molecule.GetAtomWithIdx(atom_id)
+            valence = compound.get_free_valence(atom)
+            for node in nodes:
+                test_atom = node.compound.molecule.GetAtomWithIdx(atom_id)
+                if node in nodes_output and valence != node.compound.get_free_valence(test_atom):
+                    nodes_output.remove(node)
+        # There shoud be at maximum one duplicate
+        if len(nodes_output) > 1:
+            raise ValueError
+        elif len(nodes_output) == 0:
+            return None
+        else:
+            return nodes_output[0]

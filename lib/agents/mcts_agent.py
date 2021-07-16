@@ -27,7 +27,7 @@ class MonteCarloTreeSearchAgent:
         self.output_type = output_type
         self.breath_to_depth_ratio = breath_to_depth_ratio
         self.filters = filters
-        self.c = 0.8 # Explorative hyperparameter
+        self.c = 0.3 # Explorative hyperparameter
         self.list_reward = []
 
     def reset(self, compound: Compound):
@@ -69,7 +69,8 @@ class MonteCarloTreeSearchAgent:
         if node.is_terminal():
             # Decrease score to avoid looping on this node
             # node.score *= 0.7
-            node.score *= 1.3
+            logging.debug("Reached terminal node")
+            node.score *= 1.1
             self.update(node)
             return self.select_unvisited_node()
         return node
@@ -128,16 +129,22 @@ class MonteCarloTreeSearchAgent:
         :return None:
         """
         if self.selected_node is not None and reward is not None:
-            new_node = self.selected_node.add_child(compound)
-            # Update neighboring bonds to assure consistency in the next selection
-            new_node.compound.compute_neighboring_bonds()
-            molecule = new_node.compound.clean(preserve=True)
-            new_node.score = reward
-            # new_node.valid = new_node.score == 0 and new_node.depth >= self.minimum_depth and all(
-            new_node.valid = new_node.score < Tree.INFINITY and new_node.depth >= self.minimum_depth and all(
-                _filter.apply(molecule, new_node.score) for _filter in self.filters
-            )
-            self.update(new_node)
+            duplicate = self.states_tree.find_duplicate(compound, self.selected_node.depth)
+            if duplicate is None or duplicate.score < reward:
+                if duplicate is not None:
+                    duplicate.parent.children.remove(duplicate)
+
+                new_node = self.selected_node.add_child(compound)
+                # Update neighboring bonds to assure consistency in the next selection
+                new_node.compound.compute_neighboring_bonds()
+                molecule = new_node.compound.clean(preserve=True)
+                # new_node.reward = reward
+                new_node.score = reward - 0.01 * self.selected_node.depth
+                # new_node.valid = new_node.score == 0 and new_node.depth >= self.minimum_depth and all(
+                new_node.valid = new_node.score < Tree.INFINITY and new_node.depth >= self.minimum_depth and all(
+                    _filter.apply(molecule, new_node.score) for _filter in self.filters
+                )
+                self.update(new_node)
 
     def update(self, node: Tree.Node):
         """
