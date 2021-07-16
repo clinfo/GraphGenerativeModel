@@ -31,6 +31,7 @@ Relevant files:
 - `config.json` - Sample configuration file
 - `environment.yml` - Requirements and dependencies
 - `run.py` - Command-line interface. You use this file to run the optimizer.
+- `run_gym.py` - Command-line interface. You use this file to run the optimizer (OpenAI Gym version).
 
 Trivial files:
 - `data/*` - Sample datasets and configuration files
