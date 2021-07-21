@@ -320,7 +320,8 @@ class CompoundBuilder(object):
                     source_atom < destination_atom
                     and self.is_atom_valid[source_atom]
                     and self.is_atom_valid[destination_atom]
-                    and (source_atom, destination_atom) not in self.bonds_cache
+                    and (source_atom - sum(invalid_atoms[:source_atom]), \
+                    destination_atom - sum(invalid_atoms[:destination_atom])) not in self.bonds_cache
             ):
                 self.bonds_cache.add((
                     source_atom - sum(invalid_atoms[:source_atom]),
@@ -353,6 +354,7 @@ class Tree(object):
 
             self.visits = 1
             self.score = 0
+            self.selection_score = 0
             self.performance = 0
             self.depth = 0
             self.valid = False

@@ -9,7 +9,6 @@ from typing import Union, Tuple
 
 from lib.data_structures import Compound, CompoundBuilder
 from lib.calculators import AbstractCalculator
-from lib.helpers import Sketcher
 
 import copy
 import itertools
@@ -17,7 +16,7 @@ import itertools
 class MoleculeEnv(gym.Env):
     AVAILABLE_BONDS = [Chem.rdchem.BondType.SINGLE, Chem.rdchem.BondType.DOUBLE, Chem.rdchem.BondType.TRIPLE]
 
-    def initialize(self, calculator: AbstractCalculator, max_mass: int, render_location: str=None):
+    def initialize(self, calculator: AbstractCalculator, max_mass: int):
         """
         Own initialization function since gym.make doesn't support passing arguments.
         :param calculator: used for reward computation
@@ -27,9 +26,6 @@ class MoleculeEnv(gym.Env):
         """
         self.calculator = calculator
         self.max_mass = max_mass
-        self.sketcher = Sketcher()
-        if render_location is not None:
-            self.sketcher.set_location(render_location)
 
 
     def set_compound(self, compound: Compound):
@@ -52,8 +48,8 @@ class MoleculeEnv(gym.Env):
         """
         source_atom, destination_atom = self.action_mapper[action] if isinstance(action, int) else action
         if source_atom is None or destination_atom is None:
-            logging.debug("No bonds selected to add to compound")
-            reward = self.calculate_reward(compound)
+            # logging.debug("No bonds selected to add to compound")
+            reward = None
         elif (source_atom, destination_atom) not in compound.get_bonds():
             logging.debug("Selected bond is already in compound")
             reward = np.Infinity
@@ -167,6 +163,8 @@ class MoleculeEnv(gym.Env):
         :param reward: current obtained reward
         :return bool:
         """
+        if compound is None and reward is None:
+            return True
         return False
 
     def _reset_action_space(self):
@@ -188,14 +186,6 @@ class MoleculeEnv(gym.Env):
         :return None:
         """
         self._reset_action_space()
-
-    def render(self, smiles: str):
-        """
-        Renders a molecule by drawing it.
-        :param smiles: smiles string representation of the molecule
-        :return None:
-        """
-        self.sketcher.draw(smiles)
 
     def close(self):
         """

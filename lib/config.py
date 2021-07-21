@@ -10,10 +10,11 @@ from lib.agents import MonteCarloTreeSearchAgent
 class Config(NamedTuple):
 
     dataset: str
+    experiment_name: str
     agent: Optional[str] = "MonteCarloTreeSearch"
     generate: Optional[int] = 10
 
-    threshold: Optional[float] = 0.15
+    threshold: Optional[float] = 0.14
     monte_carlo_iterations: Optional[int] = 1000
     minimum_output_depth: Optional[int] = 20
     output_type: Optional[str] = MonteCarloTreeSearchAgent.OUTPUT_FITTEST

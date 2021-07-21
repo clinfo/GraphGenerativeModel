@@ -52,6 +52,8 @@ class MonteCarloTreeSearchAgent:
         """
         self.update_tree(compound, reward)
         self.selected_node = self.tree_policy()
+        if self.selected_node is None:
+            return None, (None, None)
         self.selected_bond_indexes = self.select_unvisited_bond(self.selected_node)
 
         return self.selected_node.get_compound().clone(), self.selected_bond_indexes
@@ -70,7 +72,7 @@ class MonteCarloTreeSearchAgent:
             # Decrease score to avoid looping on this node
             # node.score *= 0.7
             logging.debug("Reached terminal node")
-            node.score *= 1.1
+            node.selection_score *= 1.1
             self.update(node)
             return self.select_unvisited_node()
         return node
@@ -102,6 +104,9 @@ class MonteCarloTreeSearchAgent:
         # Retrieve unvisited node
         all_node = self.states_tree.flatten()
         unvisited_node = [n for n in all_node if not n.is_expended()]
+        if len(unvisited_node) == 0:
+            logging.info("All possible node have been explored")
+            return None
         # Select one
         performances = [n.depth / n.performance for n in unvisited_node]
         # performances = [n.performance * n.depth / n.visits for n in unvisited_node]
@@ -139,7 +144,8 @@ class MonteCarloTreeSearchAgent:
                 new_node.compound.compute_neighboring_bonds()
                 molecule = new_node.compound.clean(preserve=True)
                 # new_node.reward = reward
-                new_node.score = reward - 0.01 * self.selected_node.depth
+                new_node.score = reward
+                new_node.selection_score = reward - 0.01 * self.selected_node.depth
                 # new_node.valid = new_node.score == 0 and new_node.depth >= self.minimum_depth and all(
                 new_node.valid = new_node.score < Tree.INFINITY and new_node.depth >= self.minimum_depth and all(
                     _filter.apply(molecule, new_node.score) for _filter in self.filters
@@ -153,7 +159,7 @@ class MonteCarloTreeSearchAgent:
         :param node: Tree.Node
         :return: None
         """
-        performance = node.score
+        performance = node.selection_score
         node.performance = performance
         node.visits += 1
 

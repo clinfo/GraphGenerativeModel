@@ -18,6 +18,8 @@ from lib.config import Config
 from lib.data_providers import MoleculeLoader
 from lib.filters import FilterFactory
 from lib.agents import MonteCarloTreeSearchAgent, RandomAgent
+from lib.helpers import Sketcher
+from eval import Evaluation
 
 RDLogger.logger().setLevel(RDLogger.CRITICAL)
 
@@ -33,10 +35,12 @@ if config.seed is not None:
 logging.basicConfig(format="%(message)s", level=config.logging)
 molecule_loader = MoleculeLoader(file_path=config.dataset, threshold=config.threshold)
 reward_calculator = CalculatorFactory.create(config.reward_calculator, config.reward_weights, config)
+sketcher = Sketcher(config.experiment_name)
 filters = [FilterFactory.create(filter_) for filter_ in config.filters]
 
+eval = Evaluation(config.experiment_name, reward_calculator)
 env = gym.make("molecule-v0")
-env.initialize(reward_calculator, config.max_mass, config.draw)
+env.initialize(reward_calculator, config.max_mass)
 
 if config.agent == "MonteCarloTreeSearch":
     agent = MonteCarloTreeSearchAgent(
@@ -50,7 +54,7 @@ elif config.agent == "Random":
 else:
     raise ValueError(f"Agent: {config.agent} not implemented. Choose from 'MonteCarloTreeSearch', 'Random'")
 
-for compound in molecule_loader.fetch(molecules_to_process=config.generate):
+for i, compound in enumerate(molecule_loader.fetch(molecules_to_process=config.generate)):
     env.set_compound(compound)
     env.reset()
     agent.reset(compound)
@@ -61,11 +65,14 @@ for compound in molecule_loader.fetch(molecules_to_process=config.generate):
         compound, action = agent.act(compound, reward)
         compound, reward, done, info = env.step(compound, action)
         if done:
+            logging.info("End of generation")
             break
 
     output = agent.get_output(compound, reward)
     if output is None:
         continue
     print(json.dumps(output, indent=4))
-    for molecule in output:
-        env.render(molecule["smiles"])
+    eval.add_output(output)
+    # for molecule in output:
+        # sketcher.draw(molecule["smiles"], i)
+eval.save_stat(config)
