@@ -40,14 +40,16 @@ filters = [FilterFactory.create(filter_) for filter_ in config.filters]
 
 eval = Evaluation(config.experiment_name, reward_calculator)
 env = gym.make("molecule-v0")
-env.initialize(reward_calculator, config.max_mass)
+env.initialize(reward_calculator, config.max_mass, config.rollout_type)
 
 if config.agent == "MonteCarloTreeSearch":
     agent = MonteCarloTreeSearchAgent(
         filters=filters,
         minimum_depth=config.minimum_output_depth,
         output_type=config.output_type,
+        select_method=config.select_method,
         breath_to_depth_ratio=config.breath_to_depth_ratio,
+        tradeoff_param=config.tradeoff_param
     )
 elif config.agent == "Random":
     agent = RandomAgent()
@@ -69,8 +71,6 @@ for i, compound in enumerate(molecule_loader.fetch(molecules_to_process=config.g
             break
 
     output = agent.get_output(compound, reward)
-    if output is None:
-        continue
     print(json.dumps(output, indent=4))
     eval.add_output(output)
     # for molecule in output:

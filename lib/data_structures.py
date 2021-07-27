@@ -10,15 +10,17 @@ class Compound(object):
     """
     Contains the atoms as an rdkit.Mol and the set of possible bonds as a list of tuples
     """
-    def __init__(self, molecule, bonds):
+    def __init__(self, molecule, bonds, bonds_prediction):
         """
         :param molecule: rdKit.Mol
         :param bonds: list((int, int))
         """
         self.molecule = molecule
         self.bonds = bonds
+        self.bonds_prediction = bonds_prediction
         self.initial_bonds = bonds.copy()
         self.neighboring_bonds = self.compute_neighboring_bonds()
+        self.bond_history = dict()
 
     def get_smiles(self):
         return Chem.MolToSmiles(self.molecule)
@@ -107,14 +109,14 @@ class Compound(object):
         :return: Compound
         """
         molecule = Chem.RWMol(self.molecule)
-        return Compound(molecule, self.initial_bonds.copy())
+        return Compound(molecule, self.initial_bonds.copy(), self.bonds_prediction)
 
     def compute_neighboring_bonds(self):
         """
         Compute neighboring bonds of an node in the tree and store it in the
         neighboring_bonds variable.
         In the case of a compound with no bonds, return all possible bonds
-        :return: list
+        :return: List
         """
         self.remove_full_atom_other_bond()
         molecule = self.get_molecule()
@@ -143,7 +145,7 @@ class Compound(object):
 
     def get_mass(self):
         """
-        :return float: mass of the molecule
+        :return: float: mass of the molecule
         """
         mol = self.clean(preserve=True)
         # mol.UpdatePropertyCache()
@@ -167,32 +169,74 @@ class Compound(object):
     def get_full_atoms_id(self):
         """
         Return all atom id of the molecule which can't have any additional bond
-        :return List(int): Id of the atoms
+        :return: List(int): Id of the atoms
         """
         return [i for i, a in enumerate(self.molecule.GetAtoms()) if self.is_atom_full(a)]
 
     def is_atom_full(self, atom):
         """
         Compute if an atom can receive another bond.
-        :return int:
+        :return: int:
         """
         return self.get_free_valence(atom) == 0
 
     def get_free_valence(self, atom):
+        """
+        Get the free valence number that can accept new bonds.
+        :param atom: Chem.Atom
+        :return: int:
+        """
         atom.UpdatePropertyCache()
         valence = atom.GetTotalValence()
         used = np.sum([b.GetValenceContrib(atom) for b in atom.GetBonds()])
         return valence - used
 
     def filter_bond_type(self, source_atom_id, destination_atom_id, available_bond_type):
+        """
+        Filter bond type possible between the two selected atoms.
+        :param source_atom_id: int
+        :param destination_atom_id: int
+        :param available_bond_type: List[BondType]
+        :return: List[BondType]
+        """
+        available_bond_type = available_bond_type.copy()
         source_atom = self.molecule.GetAtomWithIdx(source_atom_id)
         destination_atom = self.molecule.GetAtomWithIdx(destination_atom_id)
         valence_possible = min([self.get_free_valence(source_atom), self.get_free_valence(destination_atom)])
-        for i, bond in enumerate(available_bond_type):
+        for i, bond in list(enumerate(available_bond_type))[::-1]:
             if valence_possible < int(bond):
                 available_bond_type.pop(i)
         return available_bond_type
 
+    def add_bond_history(self, selected_bond, bond_type):
+        """
+        Add the tuple of atom id of the new bonds to the bond history.
+        Used to create a hash for each compound.
+        Example of an entry:
+        key (str): (7, 12)
+        value (BondType): BondType.Single
+        :param selected_bond: Tuple(int, int)
+        :param bond_type: BondType, selected bond type
+        """
+        self.bond_history[str(selected_bond)] = bond_type
+
+    def compute_hash(self):
+        """
+        Compute a hash based on the bond history to avoid duplicate nodes
+        :return: int
+        """
+        self.hash_id = hash(str(sorted(self.bond_history.items())))
+        return self.hash_id
+
+    def get_pred_proba_next_bond(self, possible_bonds):
+        """
+        Return a probability for the possible bonds based on prediction outputed by
+        kgcn.
+        :param possible_bonds: possible new bonds to expand the compound
+        :return: list of probabilities for each possible bonds
+        """
+        predition_score = [self.bonds_prediction[str(b)] for b in possible_bonds]
+        return predition_score / sum(predition_score)
 
 
 class CompoundBuilder(object):
@@ -241,6 +285,7 @@ class CompoundBuilder(object):
 
         self.molecule = Chem.RWMol()
         self.bonds_cache = set()
+        self.bonds_prediction = dict()
 
     def parse(self):
         """
@@ -316,17 +361,22 @@ class CompoundBuilder(object):
         bonds = self.filter_bonds(self.bonds, self.threshold)
 
         for source_atom, destination_atom in zip(bonds[1], bonds[2]):
+            bond = (
+                    source_atom - sum(invalid_atoms[:source_atom]),
+                    destination_atom - sum(invalid_atoms[:destination_atom]),
+                )
             if (
                     source_atom < destination_atom
                     and self.is_atom_valid[source_atom]
                     and self.is_atom_valid[destination_atom]
-                    and (source_atom - sum(invalid_atoms[:source_atom]), \
-                    destination_atom - sum(invalid_atoms[:destination_atom])) not in self.bonds_cache
+                    and bond not in self.bonds_cache
             ):
-                self.bonds_cache.add((
-                    source_atom - sum(invalid_atoms[:source_atom]),
-                    destination_atom - sum(invalid_atoms[:destination_atom]),
-                ))
+
+                self.bonds_cache.add(bond)
+                # Used for random mode
+                self.bonds_prediction.update(
+                    {str(bond): max(self.bonds[:, source_atom, destination_atom])}
+                )
 
 
 class Tree(object):
@@ -389,6 +439,7 @@ class Tree(object):
 
     def __init__(self, root: Compound):
         self.root = Tree.Node(root, None)
+        self.id_nodes = dict()
 
     def get_depth(self, current_node=None, depth=0):
         """
@@ -511,23 +562,10 @@ class Tree(object):
         for child in node.children:
             self.print_tree(child)
 
-    def find_duplicate(self, compound, depth):
-        # Find nodes with the same atoms
-        level_nodes = self.group()[depth + 1]
-        nodes = [n for n in level_nodes if n.compound.get_atoms_id() == compound.get_atoms_id()]
-        nodes_output = nodes.copy()
-        # Keep node with the same valence on each atom
-        for atom_id in compound.get_atoms_id():
-            atom = compound.molecule.GetAtomWithIdx(atom_id)
-            valence = compound.get_free_valence(atom)
-            for node in nodes:
-                test_atom = node.compound.molecule.GetAtomWithIdx(atom_id)
-                if node in nodes_output and valence != node.compound.get_free_valence(test_atom):
-                    nodes_output.remove(node)
-        # There shoud be at maximum one duplicate
-        if len(nodes_output) > 1:
-            raise ValueError
-        elif len(nodes_output) == 0:
-            return None
-        else:
-            return nodes_output[0]
+    def find_duplicate(self, compound):
+        """
+        Retrieve if it exist the node that correspond to the same compound.
+        :param compound:Compound
+        :return: Tree.Node
+        """
+        return self.id_nodes.get(compound.hash_id, None)

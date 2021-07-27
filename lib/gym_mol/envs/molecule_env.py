@@ -16,7 +16,7 @@ import itertools
 class MoleculeEnv(gym.Env):
     AVAILABLE_BONDS = [Chem.rdchem.BondType.SINGLE, Chem.rdchem.BondType.DOUBLE, Chem.rdchem.BondType.TRIPLE]
 
-    def initialize(self, calculator: AbstractCalculator, max_mass: int):
+    def initialize(self, calculator: AbstractCalculator, max_mass: int, rollout_type: str="standard"):
         """
         Own initialization function since gym.make doesn't support passing arguments.
         :param calculator: used for reward computation
@@ -26,6 +26,11 @@ class MoleculeEnv(gym.Env):
         """
         self.calculator = calculator
         self.max_mass = max_mass
+        rollout_dict = {
+            "standard": "rollout_standard",
+            "no_rollout": "no_rollout"
+        }
+        self.rollout = getattr(self, rollout_dict[rollout_type])
 
 
     def set_compound(self, compound: Compound):
@@ -63,13 +68,20 @@ class MoleculeEnv(gym.Env):
         info = {}
         return compound, reward, done, info
 
-    def add_bond(self, compound: Compound, source_atom: int, destination_atom: int, select_type="best"):
+    def add_bond(
+        self,
+        compound: Compound,
+        source_atom: int,
+        destination_atom: int,
+        select_type: str = "best",
+        is_rollout: bool = False):
         """
         Adds a bond to a given compound.
         :param compound: Compound to add bond to
         :param source_atom: index of source atom
         :param destination_atom: index of destination atom
         :param select_type: "best" or "random" selection method to use for the bond type
+        :param is_rollout: indicate inside the rollout function to optimize computation
         :return compound: updated Compound
         """
         molecule = compound.get_molecule()
@@ -92,11 +104,13 @@ class MoleculeEnv(gym.Env):
         else:
             raise ValueError(f"select_type must be best or random given: {select_type}")
 
+        if not is_rollout:
+            compound.add_bond_history([source_atom, destination_atom], target_bond.GetBondType())
         compound.remove_bond((source_atom, destination_atom))
         compound.flush_bonds()
         return compound
 
-    def rollout(self, compound: Compound):
+    def rollout_standard(self, compound: Compound):
         """
         Compute one rollout step, where a bond is added until the maximum mass is
         reached or there is no more bond to be added.
@@ -108,11 +122,13 @@ class MoleculeEnv(gym.Env):
             if len(compound.neighboring_bonds) > 0:
                 id_bond = np.random.choice(range(len(compound.neighboring_bonds)))
                 source_atom, destionation_atom = compound.neighboring_bonds[id_bond]
-                compound = self.add_bond(compound, source_atom, destionation_atom, "best")
+                compound = self.add_bond(compound, source_atom, destionation_atom, "best", is_rollout=True)
             else:
                 break
         return compound
 
+    def no_rollout(self, compound: Compound):
+        return compound
 
     def rollout_mdp(self, compound: Compound):
         """

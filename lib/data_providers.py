@@ -40,4 +40,4 @@ class MoleculeLoader(object):
             builder.initialize_bonds()
 
             molecule, bonds = builder.parse()
-            yield Compound(molecule, bonds)
+            yield Compound(molecule, bonds, builder.bonds_prediction)

@@ -14,11 +14,14 @@ class Config(NamedTuple):
     agent: Optional[str] = "MonteCarloTreeSearch"
     generate: Optional[int] = 10
 
+    select_method: Optional[str] = "MCTS_classic"
+    rollout_type: Optional[str] = "standard"
     threshold: Optional[float] = 0.14
     monte_carlo_iterations: Optional[int] = 1000
     minimum_output_depth: Optional[int] = 20
     output_type: Optional[str] = MonteCarloTreeSearchAgent.OUTPUT_FITTEST
     breath_to_depth_ratio: Optional[float] = 1
+    tradeoff_param: Optional[float] = 0
     max_mass: int = 100
 
     reward_calculator: Optional[str] = CalculatorFactory.COMPOUND_ENERGY_BABEL_MMFF
