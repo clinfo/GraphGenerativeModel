@@ -184,7 +184,7 @@ class CombinationCalculator(AbstractCalculator):
     def __init__(self,calcs: list, weights:list=None):
         self.calcs=calcs
         self.calc_weights=weights
-        
+
     def calculate(self, mol: Chem.Mol) -> float:
         scores=[]
         for i,calc in enumerate(self.calcs):
@@ -275,9 +275,9 @@ class CalculatorFactory:
         for key in options.keys():
             opt["hist_"+key]=HistogramCalculator(options[key],"hist_"+key)
         options.update(opt)
-        print(options)
+        # print(options)
         return options
-    
+
     @staticmethod
     def get_external_calc(name, config):
         external_options=["kgcn"]

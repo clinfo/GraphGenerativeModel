@@ -1,6 +1,7 @@
 import logging
 from collections import defaultdict
-
+import random
+import re
 import numpy as np
 from rdkit import Chem
 from rdkit.Chem.Descriptors import ExactMolWt
@@ -128,8 +129,8 @@ class Compound(object):
             # logging.debug("All bonds have been used.")
             return []
 
+        self.neighboring_bonds = []
         if len(current_bonds) > 0:
-            self.neighboring_bonds = []
             candidate_atoms = set()
             for bond in current_bonds:
                 candidate_atoms.add(bond.GetBeginAtomIdx())
@@ -139,6 +140,11 @@ class Compound(object):
                     self.neighboring_bonds.append((source_atom, destination_atom))
         # root case
         else:
+            # for begin_atom_id, end_atom_id in candidate_bonds:
+            #     begin_atom_num = molecule.GetAtomWithIdx(int(begin_atom_id)).GetAtomicNum()
+            #     end_atom_num = molecule.GetAtomWithIdx(int(end_atom_id)).GetAtomicNum()
+            #     if  begin_atom_num == end_atom_num == 6:
+            #         self.neighboring_bonds.append((begin_atom_id, end_atom_id))
             self.neighboring_bonds = list(candidate_bonds)
 
         return self.neighboring_bonds
@@ -238,6 +244,12 @@ class Compound(object):
         predition_score = [self.bonds_prediction[str(b)] for b in possible_bonds]
         return predition_score / sum(predition_score)
 
+    def get_atom_id_used(self):
+        output  = []
+        for bond_string in self.bond_history.keys():
+            output += re.findall('\d+', bond_string)
+        return np.sort(np.unique(output))
+
 
 class CompoundBuilder(object):
 
@@ -323,7 +335,8 @@ class CompoundBuilder(object):
         """
         if sample:
             symbol_probabilities = features[0:44] / np.sum(features[0:44])
-            symbol_index = np.random.choice(np.arange(len(symbol_probabilities)), p=symbol_probabilities)
+            # symbol_index = np.random.choice(np.arange(len(symbol_probabilities)), p=symbol_probabilities)
+            symbol_index = random.choices(np.arange(len(symbol_probabilities)), weights=symbol_probabilities)[0]
         else:
             symbol_index = np.argmax(features[0:44])
 
@@ -402,7 +415,7 @@ class Tree(object):
             self.parent = parent
             self.children = []
 
-            self.visits = 1
+            self.visits = 0
             self.score = 0
             self.selection_score = 0
             self.performance = 0

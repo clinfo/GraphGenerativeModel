@@ -1,4 +1,5 @@
 import argparse
+from functools import partial
 import json
 import logging
 import gym
@@ -19,60 +20,94 @@ from lib.data_providers import MoleculeLoader
 from lib.filters import FilterFactory
 from lib.agents import MonteCarloTreeSearchAgent, RandomAgent
 from lib.helpers import Sketcher
-from eval import Evaluation
+from eval import Evaluation, EvaluationAggregate
+import concurrent.futures
 
-RDLogger.logger().setLevel(RDLogger.CRITICAL)
+import random
 
-parser = argparse.ArgumentParser()
-parser.add_argument('config', type=str)
-args = parser.parse_args()
+def run(config, seed=None):
+    random.seed(43)
+    if seed is not None:
+        logging.info(f"Starting run with seed {seed}")
+        np.random.seed(seed)
 
-config = Config.load(args.config)
+    molecule_loader = MoleculeLoader(file_path=config.dataset, threshold=config.threshold)
+    reward_calculator = CalculatorFactory.create(config.reward_calculator, config.reward_weights, config)
+    filters = [FilterFactory.create(filter_) for filter_ in config.filters]
 
-if config.seed is not None:
-    np.random.seed(config.seed)
-
-logging.basicConfig(format="%(message)s", level=config.logging)
-molecule_loader = MoleculeLoader(file_path=config.dataset, threshold=config.threshold)
-reward_calculator = CalculatorFactory.create(config.reward_calculator, config.reward_weights, config)
-sketcher = Sketcher(config.experiment_name)
-filters = [FilterFactory.create(filter_) for filter_ in config.filters]
-
-eval = Evaluation(config.experiment_name, reward_calculator)
-env = gym.make("molecule-v0")
-env.initialize(reward_calculator, config.max_mass, config.rollout_type)
-
-if config.agent == "MonteCarloTreeSearch":
-    agent = MonteCarloTreeSearchAgent(
-        filters=filters,
-        minimum_depth=config.minimum_output_depth,
-        output_type=config.output_type,
-        select_method=config.select_method,
-        breath_to_depth_ratio=config.breath_to_depth_ratio,
-        tradeoff_param=config.tradeoff_param
+    eval = Evaluation(
+        config.experiment_name + f"_{seed}" if seed is not None else config.experiment_name,
+        reward_calculator,
+        config
     )
-elif config.agent == "Random":
-    agent = RandomAgent()
-else:
-    raise ValueError(f"Agent: {config.agent} not implemented. Choose from 'MonteCarloTreeSearch', 'Random'")
+    env = gym.make("molecule-v0")
+    env.initialize(reward_calculator, config.max_mass, config.rollout_type)
 
-for i, compound in enumerate(molecule_loader.fetch(molecules_to_process=config.generate)):
-    env.set_compound(compound)
-    env.reset()
-    agent.reset(compound)
-    reward = 0
-    done = False
-    for k in range(config.monte_carlo_iterations):
-        logging.debug(f"Iteration {k}/{config.monte_carlo_iterations}, {Chem.MolToSmiles(compound.clean(preserve=True))}, Reward {reward}")
-        compound, action = agent.act(compound, reward)
-        compound, reward, done, info = env.step(compound, action)
-        if done:
-            logging.info("End of generation")
-            break
+    if config.agent == "MonteCarloTreeSearch":
+        agent = MonteCarloTreeSearchAgent(
+            filters=filters,
+            minimum_depth=config.minimum_output_depth,
+            output_type=config.output_type,
+            select_method=config.select_method,
+            breath_to_depth_ratio=config.breath_to_depth_ratio,
+            tradeoff_param=config.tradeoff_param
+        )
+    elif config.agent == "Random":
+        agent = RandomAgent()
+    else:
+        raise ValueError(f"Agent: {config.agent} not implemented. Choose from 'MonteCarloTreeSearch', 'Random'")
 
-    output = agent.get_output(compound, reward)
-    print(json.dumps(output, indent=4))
-    eval.add_output(output)
-    # for molecule in output:
-        # sketcher.draw(molecule["smiles"], i)
-eval.save_stat(config)
+    for i, compound in enumerate(molecule_loader.fetch(molecules_to_process=config.generate)):
+        env.set_compound(compound)
+        env.reset()
+        agent.reset(compound)
+        reward = score = 0
+        done = False
+        logging.info(f"Molecule {i}/{config.generate}, seed {seed}")
+        for k in range(config.monte_carlo_iterations):
+            logging.debug(f"Iteration {k}/{config.monte_carlo_iterations}, {Chem.MolToSmiles(compound.clean(preserve=True))}, Reward {reward}, Score {score}")
+            compound, action = agent.act(compound, reward, score)
+            compound, reward, done, info, score = env.step(compound, action)
+            if done:
+                logging.info("End of generation")
+                break
+
+        output = agent.get_output(compound, reward)
+        # print(json.dumps(output, indent=4))
+        eval.compute_metric(agent)
+    eval.compute_overall_metric()
+    return eval
+
+def main():
+    RDLogger.logger().setLevel(RDLogger.CRITICAL)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('config', type=str)
+    args = parser.parse_args()
+
+    config = Config.load(args.config)
+
+    logging.basicConfig(format="%(message)s", level=config.logging)
+
+    if config.seed is not None:
+        np.random.seed(config.seed)
+
+    if config.concurrent_run is not None:
+        seeds = np.random.randint(0, 1000, config.concurrent_run)
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            run_config = partial(run, config)
+            evals = []
+            for eval in executor.map(run_config, seeds):
+                evals += [eval]
+
+        eval_agg = EvaluationAggregate(evals)
+        eval_agg.draw_best_mol_per_lvl()
+        eval_agg.compact_result()
+        print(eval_agg.overall_result)
+
+    else:
+        eval = run(config)
+        eval.save()
+
+if __name__ == "__main__":
+    main()

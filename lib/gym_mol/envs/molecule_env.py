@@ -55,18 +55,21 @@ class MoleculeEnv(gym.Env):
         if source_atom is None or destination_atom is None:
             # logging.debug("No bonds selected to add to compound")
             reward = None
+            score = None
         elif (source_atom, destination_atom) not in compound.get_bonds():
             logging.debug("Selected bond is already in compound")
             reward = np.Infinity
+            score = np.Infinity
             # reward = 0
         else:
             compound = self.add_bond(compound, source_atom, destination_atom)
             rollout_compound = self.rollout(compound)
-            reward = self.calculate_reward(rollout_compound)
+            reward = self.calculate_reward(rollout_compound) #- 0.1 * (len(rollout_compound.molecule.GetBonds()) - len(compound.molecule.GetBonds())), 0.0001)
+            score = self.calculate_reward(compound)
         done = self._is_done(compound, reward)
 
         info = {}
-        return compound, reward, done, info
+        return compound, reward, done, info, score
 
     def add_bond(
         self,
@@ -118,11 +121,13 @@ class MoleculeEnv(gym.Env):
         :return Compound
         """
         compound = compound.clone()
-        while compound.get_mass() < self.max_mass:
+        counter = 0
+        while compound.get_mass() < self.max_mass or counter > 5:
             if len(compound.neighboring_bonds) > 0:
                 id_bond = np.random.choice(range(len(compound.neighboring_bonds)))
                 source_atom, destionation_atom = compound.neighboring_bonds[id_bond]
                 compound = self.add_bond(compound, source_atom, destionation_atom, "best", is_rollout=True)
+                counter += 1
             else:
                 break
         return compound

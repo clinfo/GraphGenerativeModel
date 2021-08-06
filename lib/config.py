@@ -13,6 +13,7 @@ class Config(NamedTuple):
     experiment_name: str
     agent: Optional[str] = "MonteCarloTreeSearch"
     generate: Optional[int] = 10
+    concurrent_run: Optional[int] = None
 
     select_method: Optional[str] = "MCTS_classic"
     rollout_type: Optional[str] = "standard"

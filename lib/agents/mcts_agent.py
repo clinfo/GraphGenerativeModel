@@ -65,17 +65,18 @@ class MonteCarloTreeSearchAgent:
         self.states_tree = Tree(compound)
         self.init_compound = compound.clone()
 
-    def act(self, compound: Compound, reward:float):
+    def act(self, compound: Compound, reward:float, score: float):
         """
         Performs two operations.
         First, updates the state tree based on new child compound and reward from last iteration.
         Second, selects a node and bond to add to it for the next iteration.
         :param compound: compound obtained from last iteration after adding bond.
         :param reward: reward obtained at last iteration
+        :param score: reward on the compound of this node (not the one at the rollout)
         :return Compound: compound to process
         :return Tuple(int, int): bond to add
         """
-        self.update_tree(compound, reward)
+        self.update_tree(compound, reward, score)
         self.selected_node = self.tree_policy()
         if self.selected_node is None:
             return None, (None, None)
@@ -124,7 +125,7 @@ class MonteCarloTreeSearchAgent:
         selected_level = np.random.choice(levels, 1, p=probabilities)[0]
         candidates = nodes_per_level[selected_level]
 
-        scores = np.array([abs(node.performance) / node.visits for node in candidates])
+        scores = np.array([abs(node.performance) / (node.visits +1) for node in candidates])
         score_sum = np.sum(scores)
 
         scores = 1 - scores / score_sum if score_sum > 0 and len(scores) > 1 else [1 / len(scores)] * len(scores)
@@ -159,16 +160,16 @@ class MonteCarloTreeSearchAgent:
         """
         # Retrieve unvisited node
         all_node = self.states_tree.flatten()
-        unvisited_node = [n for n in all_node if not n.is_expended()]
-        if len(unvisited_node) == 0:
+        unexpended_node = [n for n in all_node if not n.is_expended()]
+        if len(unexpended_node) == 0:
             logging.info("All possible node have been explored")
             return None
         # Select one
-        performances = [n.depth / n.performance for n in unvisited_node]
-        # performances = [n.performance * n.depth / n.visits for n in unvisited_node]
+        performances = [n.depth / (n.performance / n.visits) for n in unexpended_node]
+        # performances = [n.performance * n.depth / n.visits for n in unexpended_node]
         performances = performances / np.sum(performances)
-        id_node = np.random.choice(range(len(unvisited_node)), p=performances)
-        return unvisited_node[id_node]
+        id_node = np.random.choice(range(len(unexpended_node)), p=performances)
+        return unexpended_node[id_node]
 
     def select_bond_breath_to_depth(self, node: Tree.Node):
         """
@@ -222,7 +223,7 @@ class MonteCarloTreeSearchAgent:
         node.unexplore_neighboring_bonds = possible_bonds
         return selected_bond
 
-    def update_tree(self, compound, reward):
+    def update_tree(self, compound, reward, score):
         """
         Updates the state tree based on new child compound to add and associated reward.
         :param compound: compound obtained from last iteration after adding bond.
@@ -233,14 +234,14 @@ class MonteCarloTreeSearchAgent:
             compound.bond_history.update(self.selected_node.compound.bond_history)
             compound.compute_hash()
             duplicate = self.states_tree.find_duplicate(compound)
-            if duplicate is None or duplicate.score > reward:
+            if duplicate is None:# or duplicate.score > reward:
                 new_node = self.selected_node.add_child(compound)
                 # Update neighboring bonds to assure consistency in the next selection
                 new_node.compound.compute_neighboring_bonds()
                 molecule = new_node.compound.clean(preserve=True)
                 # new_node.reward = reward
-                new_node.score = reward
-                new_node.selection_score = reward - 0.01 * self.selected_node.depth
+                new_node.score = score
+                new_node.selection_score = reward #- 0.01 * self.selected_node.depth
                 # new_node.valid = new_node.score == 0 and new_node.depth >= self.minimum_depth and all(
                 new_node.valid = new_node.score < Tree.INFINITY and new_node.depth >= self.minimum_depth and all(
                     _filter.apply(molecule, new_node.score) for _filter in self.filters

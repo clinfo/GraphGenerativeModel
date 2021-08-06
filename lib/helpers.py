@@ -4,6 +4,7 @@ import time
 from rdkit import Chem
 from rdkit.Chem import Draw
 import logging
+# from lib.eval import Evaluation
 
 
 class Sketcher(object):
@@ -83,8 +84,3 @@ class Sketcher(object):
             # save png to file
             with open(filename, 'wb') as png_file:
                 png_file.write(img)
-
-    def draw_from_eval(self, output):
-        for i, stat in enumerate(output['stat']):
-            for smiles, score in zip(stat['smiles'], stat['score']):
-                self.draw(smiles, i, score)
