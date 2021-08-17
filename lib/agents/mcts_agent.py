@@ -223,6 +223,41 @@ class MonteCarloTreeSearchAgent:
         node.unexplore_neighboring_bonds = possible_bonds
         return selected_bond
 
+    def select_bond_MCTS_aromatic(self, node: Tree.Node, proba_type="random"):
+        """
+        Select a bond that favors the formation of an aromatic ring.
+        Switch that bond in the first position of the aromatic queue to be deleted by the child.
+        :param node: Tree.Node:Node to expand
+        :param proba_type: str: How to select the expansion
+        :return: Tuple(int, int): bond selected
+        """
+        possible_bonds = node.unexplore_neighboring_bonds
+        aromatic_queue = node.get_compound().fill_aromatic_queue()
+        sorted_bonds = [sorted(bond) for bond in possible_bonds]
+        print("sorted bonds", sorted_bonds)
+        print("aromatic queue", aromatic_queue)
+        if len(aromatic_queue) > 0:
+            for i, bond in enumerate(aromatic_queue):
+                if bond in sorted_bonds:
+                    id_bond = sorted_bonds.index(bond)
+                    # put chosen bond in first position of the aromatic queue
+                    chosen_bond = aromatic_queue.pop(i)
+                    print("chosen bond", chosen_bond)
+                    aromatic_queue.insert(0, chosen_bond)
+                    break
+        else:
+            if proba_type == "random":
+                p = None
+            elif proba_type == "random_on_pred":
+                p = node.compound.get_pred_proba_next_bond(node.unexplore_neighboring_bonds)
+
+            id_bond = np.random.choice(range(len(possible_bonds)), p=p)
+
+        selected_bond = selected_bond = possible_bonds.pop(id_bond)
+        node.unexplore_neighboring_bonds = possible_bonds
+
+        return selected_bond
+
     def update_tree(self, compound, reward, score):
         """
         Updates the state tree based on new child compound to add and associated reward.

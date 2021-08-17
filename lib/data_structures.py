@@ -22,6 +22,11 @@ class Compound(object):
         self.initial_bonds = bonds.copy()
         self.neighboring_bonds = self.compute_neighboring_bonds()
         self.bond_history = dict()
+        self.cycle_bonds = []
+        self.available_cycles = []
+        self.aromatic_queue = []
+        self.hash_id = -1
+        self.last_bondtype = 0
 
     def get_smiles(self):
         return Chem.MolToSmiles(self.molecule)
@@ -224,6 +229,7 @@ class Compound(object):
         :param selected_bond: Tuple(int, int)
         :param bond_type: BondType, selected bond type
         """
+        self.last_bondtype = bond_type
         self.bond_history[str(selected_bond)] = bond_type
 
     def compute_hash(self):
@@ -250,6 +256,94 @@ class Compound(object):
             output += re.findall('\d+', bond_string)
         return np.sort(np.unique(output))
 
+    def set_cycles(self, cycles):
+        self.cycle_bonds = cycles
+        print(self.cycle_bonds)
+
+    def compute_available_cycles(self):
+        """
+        Compute the list of available cycles from the current molecule
+        :return: list
+        """
+        self.remove_full_atom_other_bond()
+        molecule = self.get_molecule()
+
+        candidate_cycles = self.cycle_bonds.copy()
+        sorted_bonds = [sorted(bond) for bond in self.get_bonds()]
+        current_bonds = molecule.GetBonds()
+        self.available_cycles = []
+
+        if len(current_bonds) > 0:
+            for cycle in candidate_cycles:
+
+                # cleanup and break cycle is using a non available bond
+                for bond in cycle:
+                    if bond not in sorted_bonds:
+                        self.cycle_bonds.remove(cycle)
+                        break
+
+                candidate_atoms = set()
+
+                for bond in current_bonds:
+                    candidate_atoms.add(bond.GetBeginAtomIdx())
+                    candidate_atoms.add(bond.GetEndAtomIdx())
+
+                for source_atom, destination_atom in cycle:
+                    if (
+                        source_atom in candidate_atoms
+                        or destination_atom in candidate_atoms
+                    ):
+                        self.available_cycles.append(cycle)
+                        break
+        # root case
+        else:
+            self.available_cycles = candidate_cycles
+
+        return self.available_cycles
+
+    def fill_aromatic_queue(self):
+        """
+        Pass the current aromatic queue if not empty
+        If empty, compute available cycles then pick a cycle among the available cycles
+        :return: list
+        """
+        if self.aromatic_queue == []:
+            if self.available_cycles == []:
+                self.compute_available_cycles()
+            if len(self.available_cycles) > 0:
+                self.aromatic_queue = self.available_cycles[0]
+                self.available_cycles.pop(0)
+                return self.aromatic_queue
+        else:
+            return self.aromatic_queue
+        return []
+
+    def pass_aromatic_queue(self, parent_aromatic_queue):
+        self.aromatic_queue = parent_aromatic_queue
+        # remove chosen bond
+        self.aromatic_queue.pop(0)
+
+    def get_aromatic_queue(self):
+        return self.aromatic_queue
+
+    def reset_aromatic_queue(self):
+        self.aromatic_queue = []
+
+    def get_last_bondtype(self):
+        return self.last_bondtype
+
+    def is_aromatic(self):
+        """
+        Check if whole compound is aromatic
+        :return: bool
+        """
+        ri = self.molecule.GetRingInfo()
+        if ri == []:
+            return False
+        for id in ri.BondRings():
+            if not self.molecule.GetBondWithIdx(id).GetIsAromatic():
+                return False
+        return True
 
 class CompoundBuilder(object):
 
@@ -391,6 +485,176 @@ class CompoundBuilder(object):
                     {str(bond): max(self.bonds[:, source_atom, destination_atom])}
                 )
 
+class Cycles:
+    """
+    This class contains tools to extracts all the possible cycles within a given molecule
+    Used only once in Tree class
+    """
+
+    def __init__(self, compound):
+        self.compound = compound
+        self.bonds = compound.get_bonds()
+
+        self.all_atoms = self.get_all_atoms()
+        self.n_atoms = self.get_atoms_number()
+
+        self.adj_matrix = self.get_adjacency_matrix()
+
+        self.marks = [0] * (self.n_atoms + 1)
+        self.parents = [0] * (self.n_atoms + 1)
+        self.states = [0] * (self.n_atoms + 1)
+
+        self.cycle_number = 0
+        self.cycles = [[] for i in range(10000)]
+        self.subcycles = []
+        self.cycle_sorted_pairs = []
+
+        self.compute_all_cycles()
+
+    def get_adjacency_matrix(self):
+        """
+        get the adjacency matrix from list of bonds
+        :return:
+        """
+        adj_matrix = [[] for i in range(self.n_atoms + 1)]
+        for bond in self.bonds:
+            i, j = bond
+            adj_matrix[i].append(j)
+            adj_matrix[j].append(i)
+        return adj_matrix
+
+    def get_all_atoms(self):
+        """
+        get list of all atoms coordonated from bond list
+        :return: list
+        """
+        atoms = [coord for coords in self.bonds for coord in coords]
+        return list(set(atoms))
+
+    def get_atoms_number(self):
+        """
+        get the number of atoms
+        :return: int
+        """
+        return max(self.all_atoms)
+
+    def DFScycles(self, current, parent):
+        """
+        Use DFS and painting algorithm to detect large cycles
+        :return: None
+        """
+        if self.states[current] == 2:
+            return
+
+        if self.states[current] == 1:
+            self.cycle_number += 1
+            backtrack = parent
+
+            self.cycles[self.cycle_number].append(parent)
+
+            self.states[backtrack] = 1
+
+            while backtrack != current:
+                backtrack = self.parents[backtrack]
+                self.cycles[self.cycle_number].append(backtrack)
+            return
+
+        self.parents[current] = parent
+        self.states[current] = 1
+
+        for neighbor in self.adj_matrix[current]:
+            if neighbor != parent:
+                self.DFScycles(neighbor, current)
+
+        self.states[current] = 2
+
+    def compute_large_cycles(self):
+        """
+        Use DFScycle to detect large cycles from bonds using the adjacency matrix
+        :return: None
+        """
+        self.parents = [0] * (self.n_atoms + 1)
+        self.states = [0] * (self.n_atoms + 1)
+        self.cycle_number = 0
+
+        self.DFScycles(2, 0)
+
+    def cycles_within_cycle(
+        self, cycle, current, start, parent, max_depth, path, depth
+    ):
+        """
+        Detect any subcycle in larger cycle with recursion
+        :return: None
+        """
+        if depth > max_depth:
+            return
+
+        elif current == start and depth > 1:
+            self.subcycles.append(path)
+            return
+
+        path.append(current)
+
+        for neighbor in self.adj_matrix[current]:
+            if neighbor in cycle and neighbor != parent and neighbor not in path[1:]:
+                self.cycles_within_cycle(
+                    cycle, neighbor, start, current, max_depth, path.copy(), depth + 1
+                )
+
+    def compute_all_subcycles(self):
+        """
+        Detect any subcycle in all larger cycles
+        :return: None
+        """
+        for cycle in self.cycles:
+            if len(cycle) > 3:
+                for id in cycle:
+                    self.cycles_within_cycle(cycle, id, id, 0, len(cycle), [], 0)
+
+    def get_cycle_bonds(self, cycle):
+        cycle_bonds = []
+        for i, node in enumerate(cycle):
+            bond = [cycle[i], cycle[(i + 1) % len(cycle)]]
+            bond = sorted(bond)
+            cycle_bonds.append(bond)
+        return cycle_bonds
+
+    def clean_cycles(self):
+        self.cycles = list(filter(None, self.cycles))
+
+    def remove_duplicates(self):
+        """
+        Remove all potential cycle duplicates
+        :return: None
+        """
+        cleaned_cycles = []
+        for cycle in self.cycles:
+            cycle_bonds = self.get_cycle_bonds(cycle)
+            sorted_pairs = sorted(cycle_bonds)
+            if sorted_pairs not in self.cycle_sorted_pairs:
+                cleaned_cycles.append(cycle)
+                self.cycle_sorted_pairs.append(sorted_pairs)
+
+        self.cycles = cleaned_cycles
+
+    def get_cycles_of_sizes(self, accepted_sizes=[3, 5, 6]):
+        return [x for x in self.cycle_sorted_pairs if len(x) in accepted_sizes]
+
+    def get_cycles(self):
+        return self.cycles
+
+    def get_cycle_pairs(self):
+        return self.cycle_sorted_pairs
+
+    def get_subcycles(self):
+        return self.subcycles
+
+    def compute_all_cycles(self):
+        self.compute_large_cycles()
+        self.clean_cycles()
+        self.compute_all_subcycles()
+        self.cycles = self.cycles + self.subcycles
+        self.remove_duplicates()
 
 class Tree(object):
     """
@@ -451,6 +715,7 @@ class Tree(object):
             return self.compound.get_smiles()
 
     def __init__(self, root: Compound):
+        root.set_cycles(Cycles(root).get_cycles_of_sizes(accepted_sizes=[5]))
         self.root = Tree.Node(root, None)
         self.id_nodes = dict()
 
@@ -582,3 +847,47 @@ class Tree(object):
         :return: Tree.Node
         """
         return self.id_nodes.get(compound.hash_id, None)
+
+    def tree_to_dot(self, index=0, clean=True):
+        """
+        Convert our tree to dot format
+        :param node: ignore. used in recursion.
+        :param best: ignore. used in recursion.
+        :return: None
+        """
+        all_nodes = self.flatten()
+        unique_edge_list = []
+
+        dot_graph = "digraph G { \n overlap = scale; \n"
+
+        for node in all_nodes:
+            for child in node.children:
+
+                performance_indice = int(
+                    child.performance / (child.visits + child.prior_occurence)
+                )
+                label = " [label= " + str(performance_indice) + "];"
+
+                if node == self.root:
+                    edge = '"root" -> "' + child.get_clean_smiles() + '"'
+                else:
+                    edge = (
+                        '"'
+                        + node.get_clean_smiles()
+                        + '" -> "'
+                        + child.get_clean_smiles()
+                        + '"'
+                    )
+
+                if clean:
+                    if edge not in unique_edge_list:
+                        unique_edge_list.append(edge)
+                        dot_graph += edge + "\n"
+                else:
+                    dot_graph += edge + label + "\n"
+
+        dot_graph += "}"
+
+        file = open("test/dot_graph_" + str(index) + ".gv", "wt")
+        file.write(dot_graph)
+        file.close()

@@ -87,22 +87,31 @@ class MoleculeEnv(gym.Env):
         :param is_rollout: indicate inside the rollout function to optimize computation
         :return compound: updated Compound
         """
+        # TO BE MODIFIED FOR AROMATIC MODE
+
         molecule = compound.get_molecule()
         target_bond_index = molecule.AddBond(int(source_atom), int(destination_atom), BondType.UNSPECIFIED)
         target_bond = molecule.GetBondWithIdx(target_bond_index - 1)
 
-        avaible_bond = compound.filter_bond_type(int(source_atom), int(destination_atom), self.AVAILABLE_BONDS)
+        available_bonds = compound.filter_bond_type(int(source_atom), int(destination_atom), self.AVAILABLE_BONDS)
 
+         # if member of aromatic queue was selected
+        if len(compound.get_aromatic_queue()) > 0:
+            # set conjugate
+            if compound.get_last_bondtype() == Chem.rdchem.BondType.SINGLE:
+                bond_type = Chem.rdchem.BondType.DOUBLE
+            else:
+                bond_type = Chem.rdchem.BondType.SINGLE
         if select_type=="best":
             per_bond_rewards = {}
-            for bond_type in avaible_bond:
+            for bond_type in available_bonds:
                 target_bond.SetBondType(bond_type)
                 per_bond_rewards[bond_type] = self.calculate_reward(compound)
 
             target_bond.SetBondType(min(per_bond_rewards, key=per_bond_rewards.get))
 
         elif select_type=="random":
-            bond_type = avaible_bond[np.random.choice(avaible_bond)]
+            bond_type = available_bonds[np.random.choice(available_bonds)]
             target_bond.SetBondType(bond_type)
         else:
             raise ValueError(f"select_type must be best or random given: {select_type}")
