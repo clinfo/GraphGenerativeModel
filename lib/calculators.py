@@ -10,6 +10,7 @@ from rdkit.Chem import RDConfig
 from rdkit.Chem import rdMolDescriptors
 from rdkit.Chem.Crippen import MolLogP
 from rdkit.Chem.QED import qed
+from rdkit import DataStructs
 
 import importlib
 import numpy as np
@@ -159,6 +160,20 @@ class RingCountCalculator(AbstractCalculator):
         Chem.GetSymmSSSR(mol)
         return -mol.GetRingInfo().NumRings()
 
+class TanimotoCalculator(AbstractCalculator):
+
+    def __init__(self, tanimoto_smiles):
+        assert tanimoto_smiles is not None, \
+        "To use tanimoto similarity as a reward you must enter a smile in the \
+            fiels 'tanimoto_smile'"
+        mol = Chem.MolFromSmiles(tanimoto_smiles)
+        self.compared_fps = Chem.RDKFingerprint(mol)
+
+
+    def calculate(self, mol: Chem.Mol) -> float:
+        fps_mol = Chem.RDKFingerprint(mol)
+        return DataStructs.FingerprintSimilarity(fps_mol, self.compared_fps)
+
 
 class HistogramCalculator(AbstractCalculator):
     BASE_PATH="hist/"
@@ -219,9 +234,10 @@ class CalculatorFactory:
     SA = "sa"
     MW = "mw"
     RING_COUNT = "ring_count"
+    TANIMOTO = "tanimoto"
 
     @staticmethod
-    def get_options():
+    def get_options(config):
         options = {
             CalculatorFactory.COMPOUND_ENERGY_RDKIT_UFF: RdKitEnergyCalculator(
                 RdKitEnergyCalculator.FORCE_FIELD_UFF
@@ -269,7 +285,8 @@ class CalculatorFactory:
             CalculatorFactory.MW: MwCalculator(),
             CalculatorFactory.QED: QedCalculator(),
             CalculatorFactory.SA: SaCalculator(),
-            CalculatorFactory.RING_COUNT: RingCountCalculator()
+            CalculatorFactory.RING_COUNT: RingCountCalculator(),
+            CalculatorFactory.TANIMOTO: TanimotoCalculator(config.tanimoto_smiles)
         }
         opt={}
         for key in options.keys():
@@ -293,7 +310,7 @@ class CalculatorFactory:
 
     @staticmethod
     def create(reward_type, reward_weights=None, config=None) -> AbstractCalculator:
-        options = CalculatorFactory.get_options()
+        options = CalculatorFactory.get_options(config)
         def get_calc(name,config):
             if name in options:
                 return options[name]
