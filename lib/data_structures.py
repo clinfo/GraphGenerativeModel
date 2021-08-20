@@ -5,6 +5,7 @@ import re
 import numpy as np
 from rdkit import Chem
 from rdkit.Chem.Descriptors import ExactMolWt
+from copy import deepcopy
 
 
 class Compound(object):
@@ -236,7 +237,6 @@ class Compound(object):
         self.cycle_bonds = parent_compound.cycle_bonds.copy()
         self.bond_history.update(parent_compound.bond_history)
         self.aromatic_queue = parent_compound.aromatic_queue.copy()
-        self.last_bondtype = parent_compound.last_bondtype
 
         # delete parent aromatic queue
         parent_compound.aromatic_queue = []
@@ -278,7 +278,7 @@ class Compound(object):
         self.remove_full_atom_other_bond()
         molecule = self.get_molecule()
         print("self.cycle_bonds", self.cycle_bonds)
-        candidate_cycles = self.cycle_bonds.copy()
+        candidate_cycles = deepcopy(self.cycle_bonds)
         sorted_bonds = [sorted(bond) for bond in self.get_bonds()]
         current_bonds = molecule.GetBonds()
         self.available_cycles = []
@@ -318,11 +318,8 @@ class Compound(object):
         :return: list
         """
         if self.aromatic_queue == []:
-            if self.available_cycles == []:
-                self.compute_available_cycles()
             if len(self.available_cycles) > 0:
-                self.aromatic_queue = self.available_cycles[0]
-                self.available_cycles.pop(0)
+                self.aromatic_queue = self.available_cycles.pop(0)
                 return self.aromatic_queue
         else:
             return self.aromatic_queue
@@ -697,6 +694,7 @@ class Tree(object):
             self.performance = 0
             self.depth = 0
             self.valid = False
+            self.get_compound().compute_available_cycles()
 
         def add_child(self, compound):
             child = Tree.Node(compound, self)

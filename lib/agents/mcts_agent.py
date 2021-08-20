@@ -41,7 +41,7 @@ class MonteCarloTreeSearchAgent:
         self.select_dict = {
             "breath_to_depth" : "select_breath_to_depth",
             "MCTS_classic": "select_MCTS_classic",
-            "MCTS_aromatic": "select_MCTS_classic",
+            "MCTS_aromatic": "select_MCTS_aromatic",
             "random": "select_MCTS_classic"
         }
         self.select_bond_dict = {
@@ -104,6 +104,22 @@ class MonteCarloTreeSearchAgent:
             self.update(node)
             return self.select_unvisited_node()
         return node
+
+    def get_node_aromatic_process(self):
+        return [n for n in self.states_tree.flatten() if len(n.compound.aromatic_queue) > 0]
+
+    def select_MCTS_aromatic(self):
+        """
+        Walk through the tree and select one of the node to expand.
+        If the node selected can't be expended, another node is selected randomly
+        from all the node that can be expanded in the tree.
+        :return: Tree.Node: the node selected to expand
+        """
+        in_progress_aromatic_node = self.get_node_aromatic_process()
+        if len(in_progress_aromatic_node) > 0:
+            return in_progress_aromatic_node[0]
+        else:
+            return self.select_MCTS_classic()
 
     def select_breath_to_depth(self):
         """
@@ -236,16 +252,17 @@ class MonteCarloTreeSearchAgent:
         possible_bonds = node.unexplore_neighboring_bonds
         aromatic_queue = node.get_compound().fill_aromatic_queue()
         sorted_bonds = [sorted(bond) for bond in possible_bonds]
-        print("sorted bonds", sorted_bonds)
+        # print("sorted bonds", sorted_bonds)
         print("aromatic queue", aromatic_queue)
         if len(aromatic_queue) > 0:
             for i, bond in enumerate(aromatic_queue):
                 if bond in sorted_bonds:
                     id_bond = sorted_bonds.index(bond)
                     # put chosen bond in first position of the aromatic queue
-                    chosen_bond = aromatic_queue.pop(i)
+                    # pas compris l'utilité de le mettre en premi`ere position
+                    chosen_bond = node.get_compound().aromatic_queue.pop(i)
                     print("chosen bond", chosen_bond)
-                    aromatic_queue.insert(0, chosen_bond)
+                    # aromatic_queue.insert(0, chosen_bond)
                     break
         else:
             if proba_type == "random":
