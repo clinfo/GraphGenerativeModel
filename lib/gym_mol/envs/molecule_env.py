@@ -87,21 +87,22 @@ class MoleculeEnv(gym.Env):
         :param is_rollout: indicate inside the rollout function to optimize computation
         :return compound: updated Compound
         """
-        # TO BE MODIFIED FOR AROMATIC MODE
-
         molecule = compound.get_molecule()
         target_bond_index = molecule.AddBond(int(source_atom), int(destination_atom), BondType.UNSPECIFIED)
         target_bond = molecule.GetBondWithIdx(target_bond_index - 1)
 
         available_bonds = compound.filter_bond_type(int(source_atom), int(destination_atom), self.AVAILABLE_BONDS)
 
-         # if member of aromatic queue was selected
+        # if member of aromatic queue was selected
         if len(compound.get_aromatic_queue()) > 0:
             # set conjugate
             if compound.get_last_bondtype() == Chem.rdchem.BondType.SINGLE:
                 bond_type = Chem.rdchem.BondType.DOUBLE
             else:
                 bond_type = Chem.rdchem.BondType.SINGLE
+            # remove chosen element from aromatic queue
+            compound.aromatic_queue.pop(0)
+
         if select_type=="best":
             per_bond_rewards = {}
             for bond_type in available_bonds:
@@ -118,6 +119,7 @@ class MoleculeEnv(gym.Env):
 
         if not is_rollout:
             compound.add_bond_history([source_atom, destination_atom], target_bond.GetBondType())
+
         compound.remove_bond((source_atom, destination_atom))
         compound.flush_bonds()
         return compound

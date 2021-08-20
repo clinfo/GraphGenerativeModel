@@ -3,7 +3,7 @@
     "experiment_name": "test",
     "generate": 10,
 
-    "select_method": "MCTS_classic",
+    "select_method": "MCTS_aromatic",
     "rollout_type": "standard",
     "threshold": 0.12,
     "monte_carlo_iterations": 4000,

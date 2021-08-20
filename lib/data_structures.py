@@ -232,6 +232,16 @@ class Compound(object):
         self.last_bondtype = bond_type
         self.bond_history[str(selected_bond)] = bond_type
 
+    def pass_parent_info(self, parent_compound):
+        self.cycle_bonds = parent_compound.cycle_bonds.copy()
+        self.bond_history.update(parent_compound.bond_history)
+        self.aromatic_queue = parent_compound.aromatic_queue.copy()
+        self.last_bondtype = parent_compound.last_bondtype
+
+        # delete parent aromatic queue
+        parent_compound.aromatic_queue = []
+
+
     def compute_hash(self):
         """
         Compute a hash based on the bond history to avoid duplicate nodes
@@ -267,7 +277,7 @@ class Compound(object):
         """
         self.remove_full_atom_other_bond()
         molecule = self.get_molecule()
-
+        print("self.cycle_bonds", self.cycle_bonds)
         candidate_cycles = self.cycle_bonds.copy()
         sorted_bonds = [sorted(bond) for bond in self.get_bonds()]
         current_bonds = molecule.GetBonds()
@@ -318,10 +328,13 @@ class Compound(object):
             return self.aromatic_queue
         return []
 
-    def pass_aromatic_queue(self, parent_aromatic_queue):
-        self.aromatic_queue = parent_aromatic_queue
+    """
+    def pass_aromatic_queue(self, compound):
+        self.aromatic_queue = compound.get_aromatic_queue().copy()
+        self.last_bondtype = compound.get_last_bondtype()
         # remove chosen bond
         self.aromatic_queue.pop(0)
+    """
 
     def get_aromatic_queue(self):
         return self.aromatic_queue
@@ -676,9 +689,8 @@ class Tree(object):
             """
             self.compound = compound
             self.unexplore_neighboring_bonds = self.get_compound().compute_neighboring_bonds()
-            self.parent = parent
             self.children = []
-
+            self.parent = parent
             self.visits = 0
             self.score = 0
             self.selection_score = 0
@@ -709,7 +721,8 @@ class Tree(object):
             return len(self.children) == 0
 
         def get_compound(self):
-            return self.compound.clone()
+            #probably shouldn't clone in getter
+            return self.compound #.clone()
 
         def get_smiles(self):
             return self.compound.get_smiles()

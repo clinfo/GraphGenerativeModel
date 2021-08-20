@@ -41,16 +41,18 @@ class MonteCarloTreeSearchAgent:
         self.select_dict = {
             "breath_to_depth" : "select_breath_to_depth",
             "MCTS_classic": "select_MCTS_classic",
+            "MCTS_aromatic": "select_MCTS_classic",
             "random": "select_MCTS_classic"
         }
-        self.select_bon_dict = {
+        self.select_bond_dict = {
             "breath_to_depth" : "select_bond_breath_to_depth",
             "MCTS_classic": "select_bond_MCTS_classic",
-            "random": "select_bond_MCTS_classic"
+            "random": "select_bond_MCTS_classic",
+            "MCTS_aromatic": "select_bond_MCTS_aromatic",
         }
         assert select_method in self.select_dict, f"select_method must be in {list(self.select_dict.keys())}"
         self.tree_policy  = getattr(self, self.select_dict[select_method])
-        self.select_bond = getattr(self, self.select_bon_dict[select_method])
+        self.select_bond = getattr(self, self.select_bond_dict[select_method])
         if select_method == "random":
             self.select_bond = partial(self.select_bond, proba_type="random_on_pred")
         self.select_method = select_method
@@ -253,7 +255,7 @@ class MonteCarloTreeSearchAgent:
 
             id_bond = np.random.choice(range(len(possible_bonds)), p=p)
 
-        selected_bond = selected_bond = possible_bonds.pop(id_bond)
+        selected_bond = possible_bonds.pop(id_bond)
         node.unexplore_neighboring_bonds = possible_bonds
 
         return selected_bond
@@ -266,7 +268,9 @@ class MonteCarloTreeSearchAgent:
         :return None:
         """
         if self.selected_node is not None and reward is not None:
-            compound.bond_history.update(self.selected_node.compound.bond_history)
+            #compound.bond_history.update(self.selected_node.compound.bond_history)
+            compound.pass_parent_info(self.selected_node.compound)
+            # TO MODIFY
             compound.compute_hash()
             duplicate = self.states_tree.find_duplicate(compound)
             if duplicate is None:# or duplicate.score > reward:
