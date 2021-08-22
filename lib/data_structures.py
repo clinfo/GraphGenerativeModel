@@ -348,7 +348,7 @@ class Compound(object):
         :return: bool
         """
         ri = self.molecule.GetRingInfo()
-        if ri == []:
+        if len(ri.AtomRings()) == 0:
             return False
         for id in ri.BondRings():
             if not self.molecule.GetBondWithIdx(id).GetIsAromatic():

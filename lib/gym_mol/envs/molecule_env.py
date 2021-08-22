@@ -168,23 +168,32 @@ class MoleculeEnv(gym.Env):
         :return: float
         """
         try:
-          molecule = compound.clean(preserve=True)
-          smiles = Chem.MolToSmiles(molecule)
+            molecule = compound.clean(preserve=True)
+            smiles = Chem.MolToSmiles(molecule)
 
-          if Chem.MolFromSmiles(smiles) is None:
-              raise ValueError("Invalid molecule: {}".format(smiles))
+            if Chem.MolFromSmiles(smiles) is None:
+                raise ValueError("Invalid molecule: {}".format(smiles))
 
-          molecule.UpdatePropertyCache()
-          reward = self.calculator.calculate(molecule)
-          if np.isnan(reward):
-              raise ValueError("NaN reward encountered: {}".format(smiles))
+            molecule.UpdatePropertyCache()
+            reward = self.calculator.calculate(molecule)
 
-        #   logging.debug("{} : {} : {:.6f}".format(compound.get_smiles(), Chem.MolToSmiles(molecule), reward))
-          return reward
+            # encourage aromaticity
+            # aromaticity function to be checked too easy
+            if compound.is_aromatic():
+                print("aromatic !")
+                reward /= 100
+
+            if np.isnan(reward):
+                raise ValueError("NaN reward encountered: {}".format(smiles))
+
+            #   logging.debug("{} : {} : {:.6f}".format(compound.get_smiles(), Chem.MolToSmiles(molecule), reward))
+            return reward
 
         except (ValueError, RuntimeError, AttributeError) as e:
-          logging.debug("[INVALID REWARD]: {} - {}".format(compound.get_smiles(), str(e)))
-          return np.Infinity
+            logging.debug("[INVALID REWARD]: {} - {}".format(compound.get_smiles(), str(e)))
+            return np.Infinity
+
+
         #   return 0
 
 
