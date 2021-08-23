@@ -6,6 +6,7 @@ import numpy as np
 
 from lib.data_structures import Tree, Compound
 from lib.filters import AbstractFilter
+from copy import deepcopy
 
 
 class MonteCarloTreeSearchAgent:
@@ -84,7 +85,11 @@ class MonteCarloTreeSearchAgent:
             return None, (None, None)
         self.selected_bond_indexes = self.select_bond(self.selected_node)
 
-        return self.selected_node.get_compound().clone(), self.selected_bond_indexes
+        # infos needs to be passed before env
+        new_compound = self.selected_node.get_compound().clone()
+        new_compound.pass_parent_info(self.selected_node.compound)
+
+        return new_compound, self.selected_bond_indexes
 
     def select_MCTS_classic(self):
         """
@@ -250,19 +255,20 @@ class MonteCarloTreeSearchAgent:
         :return: Tuple(int, int): bond selected
         """
         possible_bonds = node.unexplore_neighboring_bonds
-        aromatic_queue = node.get_compound().fill_aromatic_queue()
+        aromatic_queue = deepcopy(node.get_compound().fill_aromatic_queue())
         sorted_bonds = [sorted(bond) for bond in possible_bonds]
         # print("sorted bonds", sorted_bonds)
         print("aromatic queue", aromatic_queue)
+        id_bond = -1
         if len(aromatic_queue) > 0:
             for i, bond in enumerate(aromatic_queue):
                 if bond in sorted_bonds:
                     id_bond = sorted_bonds.index(bond)
                     # put chosen bond in first position of the aromatic queue
-                    # pas compris l'utilité de le mettre en premi`ere position
                     chosen_bond = node.get_compound().aromatic_queue.pop(i)
                     print("chosen bond", chosen_bond)
-                    # aromatic_queue.insert(0, chosen_bond)
+                    # We need the lenght of the aromatic queue to be superior to zero in add_bond
+                    node.get_compound().aromatic_queue.insert(0, chosen_bond)
                     break
         else:
             if proba_type == "random":
@@ -271,6 +277,9 @@ class MonteCarloTreeSearchAgent:
                 p = node.compound.get_pred_proba_next_bond(node.unexplore_neighboring_bonds)
 
             id_bond = np.random.choice(range(len(possible_bonds)), p=p)
+
+        if id_bond == -1:
+            id_bond = np.random.choice(range(len(possible_bonds)), p=None)
 
         selected_bond = possible_bonds.pop(id_bond)
         node.unexplore_neighboring_bonds = possible_bonds
@@ -286,8 +295,7 @@ class MonteCarloTreeSearchAgent:
         """
         if self.selected_node is not None and reward is not None:
             #compound.bond_history.update(self.selected_node.compound.bond_history)
-            compound.pass_parent_info(self.selected_node.compound)
-            # TO MODIFY
+
             compound.compute_hash()
             duplicate = self.states_tree.find_duplicate(compound)
             if duplicate is None:# or duplicate.score > reward:

@@ -94,28 +94,36 @@ class MoleculeEnv(gym.Env):
         available_bonds = compound.filter_bond_type(int(source_atom), int(destination_atom), self.AVAILABLE_BONDS)
 
         # if member of aromatic queue was selected
-        if len(compound.get_aromatic_queue()) > 0:
-            # set conjugate
-            if compound.get_last_bondtype() == Chem.rdchem.BondType.SINGLE:
+        if len(compound.get_aromatic_queue()) > 0 and not is_rollout:
+            # set conjugate and handle starting condition for queue duplicates, one start by single the other by double
+            if compound.get_last_bondtype() == Chem.rdchem.BondType.SINGLE: # or compound.aromatic_bonds_counter%2 == 1:
                 bond_type = Chem.rdchem.BondType.DOUBLE
             else:
                 bond_type = Chem.rdchem.BondType.SINGLE
+
+            if bond_type not in available_bonds:
+                bond_type = Chem.rdchem.BondType.SINGLE
+
             # remove chosen element from aromatic queue
             compound.aromatic_queue.pop(0)
+            # Useless because of selection effect
+            # compound.aromatic_bonds_counter+=1
+            print("new bond aromatic info = ", compound.aromatic_bonds_counter, compound.get_last_bondtype(), bond_type)
 
-        if select_type=="best":
+        elif select_type=="best":
             per_bond_rewards = {}
             for bond_type in available_bonds:
                 target_bond.SetBondType(bond_type)
                 per_bond_rewards[bond_type] = self.calculate_reward(compound)
-
-            target_bond.SetBondType(min(per_bond_rewards, key=per_bond_rewards.get))
+            bond_type = min(per_bond_rewards, key=per_bond_rewards.get)
 
         elif select_type=="random":
             bond_type = available_bonds[np.random.choice(available_bonds)]
-            target_bond.SetBondType(bond_type)
+
         else:
             raise ValueError(f"select_type must be best or random given: {select_type}")
+
+        target_bond.SetBondType(bond_type)
 
         if not is_rollout:
             compound.add_bond_history([source_atom, destination_atom], target_bond.GetBondType())

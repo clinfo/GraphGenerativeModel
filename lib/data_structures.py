@@ -28,6 +28,7 @@ class Compound(object):
         self.aromatic_queue = []
         self.hash_id = -1
         self.last_bondtype = 0
+        self.aromatic_bonds_counter = 0
 
     def get_smiles(self):
         return Chem.MolToSmiles(self.molecule)
@@ -146,11 +147,6 @@ class Compound(object):
                     self.neighboring_bonds.append((source_atom, destination_atom))
         # root case
         else:
-            # for begin_atom_id, end_atom_id in candidate_bonds:
-            #     begin_atom_num = molecule.GetAtomWithIdx(int(begin_atom_id)).GetAtomicNum()
-            #     end_atom_num = molecule.GetAtomWithIdx(int(end_atom_id)).GetAtomicNum()
-            #     if  begin_atom_num == end_atom_num == 6:
-            #         self.neighboring_bonds.append((begin_atom_id, end_atom_id))
             self.neighboring_bonds = list(candidate_bonds)
 
         return self.neighboring_bonds
@@ -160,8 +156,6 @@ class Compound(object):
         :return: float: mass of the molecule
         """
         mol = self.clean(preserve=True)
-        # mol.UpdatePropertyCache()
-        # return ExactMolWt(mol)
         atoms = mol.GetAtoms()
         return np.sum([a.GetMass() for a in atoms])
 
@@ -231,12 +225,14 @@ class Compound(object):
         :param bond_type: BondType, selected bond type
         """
         self.last_bondtype = bond_type
+        print(self.last_bondtype)
         self.bond_history[str(selected_bond)] = bond_type
 
     def pass_parent_info(self, parent_compound):
         self.cycle_bonds = parent_compound.cycle_bonds.copy()
         self.bond_history.update(parent_compound.bond_history)
         self.aromatic_queue = parent_compound.aromatic_queue.copy()
+        self.last_bondtype = parent_compound.last_bondtype
 
         # delete parent aromatic queue
         parent_compound.aromatic_queue = []
@@ -277,7 +273,7 @@ class Compound(object):
         """
         self.remove_full_atom_other_bond()
         molecule = self.get_molecule()
-        print("self.cycle_bonds", self.cycle_bonds)
+        #print("self.cycle_bonds", self.cycle_bonds)
         candidate_cycles = deepcopy(self.cycle_bonds)
         sorted_bonds = [sorted(bond) for bond in self.get_bonds()]
         current_bonds = molecule.GetBonds()
@@ -313,6 +309,9 @@ class Compound(object):
         else:
             self.available_cycles = candidate_cycles
 
+        # 2 verions of the cycles are allowed so we duplicate every available cycles_within_cycles
+        self.available_cycles = [cycle for cycle in self.available_cycles for _ in range(2)]
+        print("self.available_cycles = ", self.available_cycles)
         return self.available_cycles
 
     def fill_aromatic_queue(self):
@@ -328,14 +327,6 @@ class Compound(object):
         else:
             return self.aromatic_queue
         return []
-
-    """
-    def pass_aromatic_queue(self, compound):
-        self.aromatic_queue = compound.get_aromatic_queue().copy()
-        self.last_bondtype = compound.get_last_bondtype()
-        # remove chosen bond
-        self.aromatic_queue.pop(0)
-    """
 
     def get_aromatic_queue(self):
         return self.aromatic_queue
@@ -355,7 +346,7 @@ class Compound(object):
 
         if len(ri.AtomRings()) == 0:
             return False
-        print(ri.AtomRings())
+        print("---------------", ri.AtomRings())
         for id in ri.BondRings():
             if not self.molecule.GetBondWithIdx(id).GetIsAromatic():
                 return False
