@@ -9,11 +9,18 @@ import numpy as np
 import pickle
 from lib.helpers import Sketcher
 
+
 class Evaluation(object):
     """
     Keep track of the molecule generated during the training as well as some other metrics.
     """
-    def __init__(self, experiment_name: str, reward_calculator: AbstractCalculator, config: Config) -> None:
+
+    def __init__(
+        self,
+        experiment_name: str,
+        reward_calculator: AbstractCalculator,
+        config: Config,
+    ) -> None:
         """
         :param config: config of the experiment
         """
@@ -26,7 +33,9 @@ class Evaluation(object):
         self.trees = []
         self.test_metric = []
 
-    def clean_tree(self, agent: MonteCarloTreeSearchAgent, current_node: Tree.Node = None):
+    def clean_tree(
+        self, agent: MonteCarloTreeSearchAgent, current_node: Tree.Node = None
+    ):
         """
         breath_to_depth selection method enable the creation of compound with
         mutiple molecule. In order to evauate the model efficiently, there is a
@@ -36,17 +45,22 @@ class Evaluation(object):
             current_node = agent.states_tree.root
         for child in current_node.children:
             smile = child.compound.clean_smiles(preserve=True)
-            if len(smile.split('.')) > 1:
+            if len(smile.split(".")) > 1:
                 # Find biggest Molecule in smiles
-                mols = [Chem.MolFromSmiles(s) for s in smile.split('.')]
+                mols = [Chem.MolFromSmiles(s) for s in smile.split(".")]
                 mol_bonds = [len(m.GetBonds()) if m is not None else 0 for m in mols]
                 id_biggest_mol = np.argmax(mol_bonds)
                 # Update stat of mol with biggest molecule stat
                 child.depth = mol_bonds[id_biggest_mol]
                 child.compound.molecule = mols[id_biggest_mol]
                 child.score = self.calculator.calculate(mols[id_biggest_mol])
-                child.valid = child.valid and child.depth >= self.config.minimum_output_depth and all(
-                    _filter.apply(mols[id_biggest_mol], child.score) for _filter in agent.filters
+                child.valid = (
+                    child.valid
+                    and child.depth >= self.config.minimum_output_depth
+                    and all(
+                        _filter.apply(mols[id_biggest_mol], child.score)
+                        for _filter in agent.filters
+                    )
                 )
             self.clean_tree(agent, child)
         return agent
@@ -60,16 +74,22 @@ class Evaluation(object):
         for mol_per_level in [1, 10]:
             mean_score_level = self.compute_mean_score(agent.states_tree, mol_per_level)
             mean_score_levels = self.all_mean_score_levels.get(mol_per_level, [])
-            self.all_mean_score_levels.update({mol_per_level: mean_score_levels + [mean_score_level]})
+            self.all_mean_score_levels.update(
+                {mol_per_level: mean_score_levels + [mean_score_level]}
+            )
 
     def compute_mean_score(self, tree, mol_per_level):
         # Retrieve level of interest
-        level_of_interest = list(tree.group().items())[self.config.minimum_output_depth:]
+        level_of_interest = list(tree.group().items())[
+            self.config.minimum_output_depth :
+        ]
         # Compute mean score of k best molecule
         mean_score_level = {}
         for level, list_node in level_of_interest:
             id_best_molecule = np.argsort([n.score for n in list_node])[:mol_per_level]
-            mean_best_score = np.mean([n.score for n in np.array(list_node)[id_best_molecule]])
+            mean_best_score = np.mean(
+                [n.score for n in np.array(list_node)[id_best_molecule]]
+            )
             mean_score_level.update({level: mean_best_score})
         return mean_score_level
 
@@ -82,7 +102,10 @@ class Evaluation(object):
 
     def compute_overall_mean_score(self, mean_score_levels):
         overall_mean_score = {}
-        depth_score = [max(mean_score) if len(mean_score) > 0 else 0 for mean_score in mean_score_levels]
+        depth_score = [
+            max(mean_score) if len(mean_score) > 0 else 0
+            for mean_score in mean_score_levels
+        ]
         max_depth = 0 if len(depth_score) == 0 else max(depth_score)
         for depth in range(self.config.minimum_output_depth, max_depth + 1):
             value_depth = []
@@ -92,15 +115,17 @@ class Evaluation(object):
                     continue
                 else:
                     value_depth.append(value)
-            overall_mean_score[depth] = np.mean(value_depth) if len(value_depth) > 0 else None
+            overall_mean_score[depth] = (
+                np.mean(value_depth) if len(value_depth) > 0 else None
+            )
         return overall_mean_score
 
     def save(self):
         """
         Save the object
         """
-        filename = f'eval_{self.config.experiment_name}_{self.config.seed}.pkl'
-        with open(filename, 'wb') as handle:
+        filename = f"eval_{self.config.experiment_name}_{self.config.seed}.pkl"
+        with open(filename, "wb") as handle:
             pickle.dump(self, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
         logging.info(f"Saved eval result to {filename}")
@@ -123,8 +148,8 @@ class Evaluation(object):
                 smiles = node.compound.clean_smiles(preserve=True)
                 sketcher.draw(smiles, num_mol, node.score)
 
-class EvaluationAggregate(object):
 
+class EvaluationAggregate(object):
     def __init__(self, list_eval: List[Evaluation]):
         self.list_eval = list_eval
         self.config = list_eval[0].config
@@ -132,12 +157,18 @@ class EvaluationAggregate(object):
     def compact_result(self):
         self.overall_result = {}
         for mol_per_level in [1, 10]:
-            self.overall_result[mol_per_level] = self.compact_overall_result(mol_per_level)
-
+            self.overall_result[mol_per_level] = self.compact_overall_result(
+                mol_per_level
+            )
 
     def compact_overall_result(self, mol_per_level):
         output = {}
-        depth_eval = [max(e.overall_result[mol_per_level]) if len(e.overall_result[mol_per_level]) > 0 else 0 for e in self.list_eval]
+        depth_eval = [
+            max(e.overall_result[mol_per_level])
+            if len(e.overall_result[mol_per_level]) > 0
+            else 0
+            for e in self.list_eval
+        ]
         max_depth = max(depth_eval)
         for depth in range(self.config.minimum_output_depth, max_depth + 1):
             value_depth = []
@@ -150,7 +181,6 @@ class EvaluationAggregate(object):
             output[depth] = (np.mean(value_depth), np.std(value_depth))
         return output
 
-
     def get_best_node_per_molecule(self):
         best_mol = {}
         for num_mol, level_trees in enumerate(zip(*[e.trees for e in self.list_eval])):
@@ -161,7 +191,10 @@ class EvaluationAggregate(object):
                 all_nodes += tree.flatten()
             # Retrieving best node per level
             for node in all_nodes:
-                if node.valid and (node.depth not in best_nodes or node.score < best_nodes[node.depth].score):
+                if node.valid and (
+                    node.depth not in best_nodes
+                    or node.score < best_nodes[node.depth].score
+                ):
                     best_nodes[node.depth] = node
             best_mol.update({num_mol: best_nodes})
         return best_mol
@@ -178,17 +211,21 @@ class EvaluationAggregate(object):
         """
         Save the EvaluationAggregate object
         """
-        filename = f'eval_agg_{self.config.experiment_name}_{self.config.seed}.pkl'
-        with open(filename, 'wb') as handle:
+        filename = f"eval_agg_{self.config.experiment_name}_{self.config.seed}.pkl"
+        with open(filename, "wb") as handle:
             pickle.dump(self, handle, protocol=pickle.HIGHEST_PROTOCOL)
         logging.info(f"Saved eval result to {filename}")
 
 
-
 def compact_eval(list_eval):
     mean_result = {}
-    max_depth = max([max(e.mean_score_levels[0]) if len(e.mean_score_levels[0]) > 0 else 0 for e in list_eval])
-    for i in range(11, max_depth+1):
+    max_depth = max(
+        [
+            max(e.mean_score_levels[0]) if len(e.mean_score_levels[0]) > 0 else 0
+            for e in list_eval
+        ]
+    )
+    for i in range(11, max_depth + 1):
         value = []
         for eval in list_eval:
             value_eval = eval.mean_score_levels[0].get(i, None)
@@ -199,11 +236,13 @@ def compact_eval(list_eval):
         mean_result[i] = np.mean(value)
     a = 0
 
+
 def compare_dict(a, b):
     output = {}
     for i in np.unique(list(a.keys()) + list(b.keys())):
         output.update({i: a.get(i, 0) - b.get(i, 0)})
     return output
+
 
 if __name__ == "__main__":
     # compare_evaluation("classic_42.pkl", "classic_43.pkl")
@@ -217,5 +256,17 @@ if __name__ == "__main__":
     # "random_43_16.pkl", "random_43_58.pkl", "random_43_187.pkl", "random_43_307.pkl", "random_43_657.pkl"])
     # compact_eval(["breath_to_depth_42_102.pkl", "breath_to_depth_42_106.pkl", "breath_to_depth_42_270.pkl", "breath_to_depth_42_435.pkl", "breath_to_depth_42_860.pkl",
     # "breath_to_depth_42_20.pkl", "breath_to_depth_42_71.pkl", "breath_to_depth_42_121.pkl", "breath_to_depth_42_614.pkl", "breath_to_depth_42_700.pkl"])
-    compact_eval(["breath_to_depth_43_255.pkl", "breath_to_depth_43_277.pkl", "breath_to_depth_43_320.pkl", "breath_to_depth_43_817.pkl", "breath_to_depth_43_836.pkl",
-    "breath_to_depth_43_16.pkl", "breath_to_depth_43_58.pkl", "breath_to_depth_43_187.pkl", "breath_to_depth_43_307.pkl", "breath_to_depth_43_657.pkl"])
+    compact_eval(
+        [
+            "breath_to_depth_43_255.pkl",
+            "breath_to_depth_43_277.pkl",
+            "breath_to_depth_43_320.pkl",
+            "breath_to_depth_43_817.pkl",
+            "breath_to_depth_43_836.pkl",
+            "breath_to_depth_43_16.pkl",
+            "breath_to_depth_43_58.pkl",
+            "breath_to_depth_43_187.pkl",
+            "breath_to_depth_43_307.pkl",
+            "breath_to_depth_43_657.pkl",
+        ]
+    )

@@ -12,6 +12,7 @@ class Compound(object):
     """
     Contains the atoms as an rdkit.Mol and the set of possible bonds as a list of tuples
     """
+
     def __init__(self, molecule, bonds, bonds_prediction):
         """
         :param molecule: rdKit.Mol
@@ -56,7 +57,7 @@ class Compound(object):
             return self.clean(preserve=True).GetAtoms()
         else:
             atom_ids = set()
-            for bond in  self.molecule.GetBonds():
+            for bond in self.molecule.GetBonds():
                 atom_ids.add(bond.GetBeginAtomIdx())
                 atom_ids.add(bond.GetEndAtomIdx())
             return set([self.molecule.GetAtomWithIdx(id) for id in atom_ids])
@@ -143,7 +144,10 @@ class Compound(object):
                 candidate_atoms.add(bond.GetBeginAtomIdx())
                 candidate_atoms.add(bond.GetEndAtomIdx())
             for source_atom, destination_atom in candidate_bonds:
-                if source_atom in candidate_atoms or destination_atom in candidate_atoms:
+                if (
+                    source_atom in candidate_atoms
+                    or destination_atom in candidate_atoms
+                ):
                     self.neighboring_bonds.append((source_atom, destination_atom))
         # root case
         else:
@@ -177,7 +181,9 @@ class Compound(object):
         Return all atom id of the molecule which can't have any additional bond
         :return: List(int): Id of the atoms
         """
-        return [i for i, a in enumerate(self.molecule.GetAtoms()) if self.is_atom_full(a)]
+        return [
+            i for i, a in enumerate(self.molecule.GetAtoms()) if self.is_atom_full(a)
+        ]
 
     def is_atom_full(self, atom):
         """
@@ -197,7 +203,9 @@ class Compound(object):
         used = np.sum([b.GetValenceContrib(atom) for b in atom.GetBonds()])
         return valence - used
 
-    def filter_bond_type(self, source_atom_id, destination_atom_id, available_bond_type):
+    def filter_bond_type(
+        self, source_atom_id, destination_atom_id, available_bond_type
+    ):
         """
         Filter bond type possible between the two selected atoms.
         :param source_atom_id: int
@@ -208,7 +216,12 @@ class Compound(object):
         available_bond_type = available_bond_type.copy()
         source_atom = self.molecule.GetAtomWithIdx(source_atom_id)
         destination_atom = self.molecule.GetAtomWithIdx(destination_atom_id)
-        valence_possible = min([self.get_free_valence(source_atom), self.get_free_valence(destination_atom)])
+        valence_possible = min(
+            [
+                self.get_free_valence(source_atom),
+                self.get_free_valence(destination_atom),
+            ]
+        )
         for i, bond in list(enumerate(available_bond_type))[::-1]:
             if valence_possible < int(bond):
                 available_bond_type.pop(i)
@@ -237,7 +250,6 @@ class Compound(object):
         # delete parent aromatic queue
         parent_compound.aromatic_queue = []
 
-
     def compute_hash(self):
         """
         Compute a hash based on the bond history to avoid duplicate nodes
@@ -257,9 +269,9 @@ class Compound(object):
         return predition_score / sum(predition_score)
 
     def get_atom_id_used(self):
-        output  = []
+        output = []
         for bond_string in self.bond_history.keys():
-            output += re.findall('\d+', bond_string)
+            output += re.findall("\d+", bond_string)
         return np.sort(np.unique(output))
 
     def set_cycles(self, cycles):
@@ -273,7 +285,7 @@ class Compound(object):
         """
         self.remove_full_atom_other_bond()
         molecule = self.get_molecule()
-        #print("self.cycle_bonds", self.cycle_bonds)
+        # print("self.cycle_bonds", self.cycle_bonds)
         candidate_cycles = deepcopy(self.cycle_bonds)
         sorted_bonds = [sorted(bond) for bond in self.get_bonds()]
         current_bonds = molecule.GetBonds()
@@ -310,7 +322,9 @@ class Compound(object):
             self.available_cycles = candidate_cycles
 
         # 2 verions of the cycles are allowed so we duplicate every available cycles_within_cycles
-        self.available_cycles = [cycle for cycle in self.available_cycles for _ in range(2)]
+        self.available_cycles = [
+            cycle for cycle in self.available_cycles for _ in range(2)
+        ]
         print("self.available_cycles = ", self.available_cycles)
         return self.available_cycles
 
@@ -352,6 +366,7 @@ class Compound(object):
                 return False
         return True
 
+
 class CompoundBuilder(object):
 
     """
@@ -360,9 +375,50 @@ class CompoundBuilder(object):
 
     """Atomic Symbols Map"""
     ATOM_SYMBOL_MAPPING = [
-        'C', 'N', 'O', 'S', 'F', 'Si', 'P', 'Cl', 'Br', 'Mg', 'Na', 'Ca', 'Fe', 'As', 'Al', 'I',
-        'B', 'V', 'K', 'Tl', 'Yb', 'Sb', 'Sn', 'Ag', 'Pd', 'Co', 'Se', 'Ti', 'Zn', 'H', 'Li',
-        'Ge', 'Cu', 'Au', 'Ni', 'Cd', 'In', 'Mn', 'Zr', 'Cr', 'Pt', 'Hg', 'Pb', '*'
+        "C",
+        "N",
+        "O",
+        "S",
+        "F",
+        "Si",
+        "P",
+        "Cl",
+        "Br",
+        "Mg",
+        "Na",
+        "Ca",
+        "Fe",
+        "As",
+        "Al",
+        "I",
+        "B",
+        "V",
+        "K",
+        "Tl",
+        "Yb",
+        "Sb",
+        "Sn",
+        "Ag",
+        "Pd",
+        "Co",
+        "Se",
+        "Ti",
+        "Zn",
+        "H",
+        "Li",
+        "Ge",
+        "Cu",
+        "Au",
+        "Ni",
+        "Cd",
+        "In",
+        "Mn",
+        "Zr",
+        "Cr",
+        "Pt",
+        "Hg",
+        "Pb",
+        "*",
     ]
 
     """Hybridization Type Map"""
@@ -371,7 +427,7 @@ class CompoundBuilder(object):
         Chem.rdchem.HybridizationType.SP2,
         Chem.rdchem.HybridizationType.SP3,
         Chem.rdchem.HybridizationType.SP3D,
-        Chem.rdchem.HybridizationType.SP3D2
+        Chem.rdchem.HybridizationType.SP3D2,
     ]
 
     """Bonds Map"""
@@ -412,20 +468,22 @@ class CompoundBuilder(object):
         :param features: atom data
         :return: dict
         """
-        result={
+        result = {
             "symbol": self.get_chemical_symbol(features, sample=True),
             "degree": np.argmax(features[44:55]),
             "implicit_valence": np.argmax(features[55:62]),
             "formal_charge": features[62],
             "radical_electrons": features[63],
-            "hybridization": self.HYBRIDIZATION_MAPPING[int(np.argmax(features[64:69]))],
+            "hybridization": self.HYBRIDIZATION_MAPPING[
+                int(np.argmax(features[64:69]))
+            ],
             "is_aromatic": features[69],
-            "hydrogen_atoms_count": np.argmax(features[70:75])
+            "hydrogen_atoms_count": np.argmax(features[70:75]),
         }
-        if len(features)>=76:
-            ring_size=list(range(3,8))
-            result["ring"]=features[75],
-            result["ring_size"]= ring_size[np.argmax(features[76:81])]
+        if len(features) >= 76:
+            ring_size = list(range(3, 8))
+            result["ring"] = (features[75],)
+            result["ring_size"] = ring_size[np.argmax(features[76:81])]
         return result
 
     def get_chemical_symbol(self, features, sample=True):
@@ -437,7 +495,9 @@ class CompoundBuilder(object):
         if sample:
             symbol_probabilities = features[0:44] / np.sum(features[0:44])
             # symbol_index = np.random.choice(np.arange(len(symbol_probabilities)), p=symbol_probabilities)
-            symbol_index = random.choices(np.arange(len(symbol_probabilities)), weights=symbol_probabilities)[0]
+            symbol_index = random.choices(
+                np.arange(len(symbol_probabilities)), weights=symbol_probabilities
+            )[0]
         else:
             symbol_index = np.argmax(features[0:44])
 
@@ -476,14 +536,14 @@ class CompoundBuilder(object):
 
         for source_atom, destination_atom in zip(bonds[1], bonds[2]):
             bond = (
-                    source_atom - sum(invalid_atoms[:source_atom]),
-                    destination_atom - sum(invalid_atoms[:destination_atom]),
-                )
+                source_atom - sum(invalid_atoms[:source_atom]),
+                destination_atom - sum(invalid_atoms[:destination_atom]),
+            )
             if (
-                    source_atom < destination_atom
-                    and self.is_atom_valid[source_atom]
-                    and self.is_atom_valid[destination_atom]
-                    and bond not in self.bonds_cache
+                source_atom < destination_atom
+                and self.is_atom_valid[source_atom]
+                and self.is_atom_valid[destination_atom]
+                and bond not in self.bonds_cache
             ):
 
                 self.bonds_cache.add(bond)
@@ -491,6 +551,7 @@ class CompoundBuilder(object):
                 self.bonds_prediction.update(
                     {str(bond): max(self.bonds[:, source_atom, destination_atom])}
                 )
+
 
 class Cycles:
     """
@@ -663,6 +724,7 @@ class Cycles:
         self.cycles = self.cycles + self.subcycles
         self.remove_duplicates()
 
+
 class Tree(object):
     """
     Basic tree structure
@@ -682,7 +744,9 @@ class Tree(object):
             :param parent: parent Tree.Node
             """
             self.compound = compound
-            self.unexplore_neighboring_bonds = self.get_compound().compute_neighboring_bonds()
+            self.unexplore_neighboring_bonds = (
+                self.get_compound().compute_neighboring_bonds()
+            )
             self.children = []
             self.parent = parent
             self.visits = 0
@@ -716,8 +780,8 @@ class Tree(object):
             return len(self.children) == 0
 
         def get_compound(self):
-            #probably shouldn't clone in getter
-            return self.compound #.clone()
+            # probably shouldn't clone in getter
+            return self.compound  # .clone()
 
         def get_smiles(self):
             return self.compound.get_smiles()
@@ -816,7 +880,10 @@ class Tree(object):
         best_nodes = {}
 
         for node in all_nodes:
-            if node.valid and (node.depth not in best_nodes or node.score < best_nodes[node.depth].score):
+            if node.valid and (
+                node.depth not in best_nodes
+                or node.score < best_nodes[node.depth].score
+            ):
                 best_nodes[node.depth] = node
 
         return best_nodes

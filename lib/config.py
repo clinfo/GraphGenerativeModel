@@ -28,11 +28,13 @@ class Config(NamedTuple):
     reward_calculator: Optional[str] = CalculatorFactory.COMPOUND_ENERGY_BABEL_MMFF
     reward_weights: Optional[List[float]] = None
 
-    kgcn_model_py: str=None
-    kgcn_model: str=None
+    kgcn_model_py: str = None
+    kgcn_model: str = None
 
-
-    filters: Optional[List[str]] = [FilterFactory.POSITIVE_REWARD, FilterFactory.MOLECULAR_WEIGHT]
+    filters: Optional[List[str]] = [
+        FilterFactory.POSITIVE_REWARD,
+        FilterFactory.MOLECULAR_WEIGHT,
+    ]
 
     draw: Optional[str] = None
     logging: Optional[int] = logging.CRITICAL

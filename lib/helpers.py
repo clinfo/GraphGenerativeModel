@@ -4,6 +4,7 @@ import time
 from rdkit import Chem
 from rdkit.Chem import Draw
 import logging
+
 # from lib.eval import Evaluation
 
 
@@ -16,8 +17,8 @@ class Sketcher(object):
         self.enabled = False
         self.experiment_name = experiment_name
         if path_to_save is None:
-            path_dir = os.path.abspath('.')
-            path_to_save = os.path.join(path_dir, 'molecule_img', experiment_name)
+            path_dir = os.path.abspath(".")
+            path_to_save = os.path.join(path_dir, "molecule_img", experiment_name)
         self.set_location(path_to_save)
 
     def disable(self):
@@ -45,8 +46,8 @@ class Sketcher(object):
         """
         path_dir = os.path.join(
             self.location,
-            f'molecule_{num_molecule}' if num_molecule is not None else '',
-            '_'.join([str(t) for t in time.localtime()[0:5]])
+            f"molecule_{num_molecule}" if num_molecule is not None else "",
+            "_".join([str(t) for t in time.localtime()[0:5]]),
         )
 
         if not os.path.exists(path_dir):
@@ -54,9 +55,7 @@ class Sketcher(object):
 
         return os.path.join(path_dir, f"depth_{depth}_smiles_{smiles}.png")
 
-
     def generate_png(self, mol, depth, score):
-
 
         d2d = Draw.MolDraw2DCairo(400, 400)
         legend = f"nb bonds={depth} score={score}"
@@ -82,5 +81,5 @@ class Sketcher(object):
             img = self.generate_png(molecule, depth, score)
 
             # save png to file
-            with open(filename, 'wb') as png_file:
+            with open(filename, "wb") as png_file:
                 png_file.write(img)

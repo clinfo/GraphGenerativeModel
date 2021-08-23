@@ -12,18 +12,19 @@ from copy import deepcopy
 class MonteCarloTreeSearchAgent:
 
     """Available Output Types"""
+
     OUTPUT_FITTEST = "fittest"
     OUTPUT_DEEPEST = "deepest"
     OUTPUT_PER_LEVEL = "per_level"
 
     def __init__(
-            self,
-            minimum_depth: int,
-            output_type: str,
-            filters: List[AbstractFilter],
-            select_method: str,
-            breath_to_depth_ratio: float=0,
-            tradeoff_param: float=0
+        self,
+        minimum_depth: int,
+        output_type: str,
+        filters: List[AbstractFilter],
+        select_method: str,
+        breath_to_depth_ratio: float = 0,
+        tradeoff_param: float = 0,
     ):
         """
         :param minimum_depth: from the input parameters (see README.md for details)
@@ -40,19 +41,21 @@ class MonteCarloTreeSearchAgent:
         self.tradeoff_param = tradeoff_param
         self.list_reward = []
         self.select_dict = {
-            "breath_to_depth" : "select_breath_to_depth",
+            "breath_to_depth": "select_breath_to_depth",
             "MCTS_classic": "select_MCTS_classic",
             "MCTS_aromatic": "select_MCTS_aromatic",
-            "random": "select_MCTS_classic"
+            "random": "select_MCTS_classic",
         }
         self.select_bond_dict = {
-            "breath_to_depth" : "select_bond_breath_to_depth",
+            "breath_to_depth": "select_bond_breath_to_depth",
             "MCTS_classic": "select_bond_MCTS_classic",
             "random": "select_bond_MCTS_classic",
             "MCTS_aromatic": "select_bond_MCTS_aromatic",
         }
-        assert select_method in self.select_dict, f"select_method must be in {list(self.select_dict.keys())}"
-        self.tree_policy  = getattr(self, self.select_dict[select_method])
+        assert (
+            select_method in self.select_dict
+        ), f"select_method must be in {list(self.select_dict.keys())}"
+        self.tree_policy = getattr(self, self.select_dict[select_method])
         self.select_bond = getattr(self, self.select_bond_dict[select_method])
         if select_method == "random":
             self.select_bond = partial(self.select_bond, proba_type="random_on_pred")
@@ -68,7 +71,7 @@ class MonteCarloTreeSearchAgent:
         self.states_tree = Tree(compound)
         self.init_compound = compound.clone()
 
-    def act(self, compound: Compound, reward:float, score: float):
+    def act(self, compound: Compound, reward: float, score: float):
         """
         Performs two operations.
         First, updates the state tree based on new child compound and reward from last iteration.
@@ -111,7 +114,9 @@ class MonteCarloTreeSearchAgent:
         return node
 
     def get_node_aromatic_process(self):
-        return [n for n in self.states_tree.flatten() if len(n.compound.aromatic_queue) > 0]
+        return [
+            n for n in self.states_tree.flatten() if len(n.compound.aromatic_queue) > 0
+        ]
 
     def select_MCTS_aromatic(self):
         """
@@ -148,10 +153,16 @@ class MonteCarloTreeSearchAgent:
         selected_level = np.random.choice(levels, 1, p=probabilities)[0]
         candidates = nodes_per_level[selected_level]
 
-        scores = np.array([abs(node.performance) / (node.visits +1) for node in candidates])
+        scores = np.array(
+            [abs(node.performance) / (node.visits + 1) for node in candidates]
+        )
         score_sum = np.sum(scores)
 
-        scores = 1 - scores / score_sum if score_sum > 0 and len(scores) > 1 else [1 / len(scores)] * len(scores)
+        scores = (
+            1 - scores / score_sum
+            if score_sum > 0 and len(scores) > 1
+            else [1 / len(scores)] * len(scores)
+        )
         scores /= np.sum(scores)  # normalize outputs (so they add up to 1)
 
         return np.random.choice(candidates, 1, p=scores)[0]
@@ -161,13 +172,16 @@ class MonteCarloTreeSearchAgent:
         This function is the poilicy apply to select a children node
         :return: Tree.Node: Node selected by walking through the tree
         """
+
         def ucb(node):
             """
             Strategy to select the node used by unitMCTS (https://arxiv.org/pdf/2010.16399.pdf)
             :return: float
             """
             # return node.performance/node.visits + self.tradeoff_param * np.sqrt(np.log(node.parent.visits) / node.visits)
-            return node.performance/node.visits - self.tradeoff_param * np.sqrt(np.log(node.parent.visits) / node.visits)
+            return node.performance / node.visits - self.tradeoff_param * np.sqrt(
+                np.log(node.parent.visits) / node.visits
+            )
 
         performance = [ucb(child) for child in node.children]
         id_chosen_node = np.argmin(performance)
@@ -220,12 +234,17 @@ class MonteCarloTreeSearchAgent:
                 candidate_atoms.add(bond.GetBeginAtomIdx())
 
             for source_atom, destination_atom in candidate_bonds:
-                if source_atom in candidate_atoms or destination_atom in candidate_atoms:
+                if (
+                    source_atom in candidate_atoms
+                    or destination_atom in candidate_atoms
+                ):
                     neighboring_bonds.append((source_atom, destination_atom))
 
             if len(neighboring_bonds) > 0:
                 candidate_bonds = neighboring_bonds
-        source_atom, destination_atom = list(candidate_bonds)[np.random.choice(len(candidate_bonds), 1)[0]]
+        source_atom, destination_atom = list(candidate_bonds)[
+            np.random.choice(len(candidate_bonds), 1)[0]
+        ]
         return source_atom, destination_atom
 
     def select_bond_MCTS_classic(self, node: Tree.Node, proba_type="random"):
@@ -274,7 +293,9 @@ class MonteCarloTreeSearchAgent:
             if proba_type == "random":
                 p = None
             elif proba_type == "random_on_pred":
-                p = node.compound.get_pred_proba_next_bond(node.unexplore_neighboring_bonds)
+                p = node.compound.get_pred_proba_next_bond(
+                    node.unexplore_neighboring_bonds
+                )
 
             id_bond = np.random.choice(range(len(possible_bonds)), p=p)
 
@@ -294,28 +315,35 @@ class MonteCarloTreeSearchAgent:
         :return None:
         """
         if self.selected_node is not None and reward is not None:
-            #compound.bond_history.update(self.selected_node.compound.bond_history)
+            # compound.bond_history.update(self.selected_node.compound.bond_history)
 
             compound.compute_hash()
             duplicate = self.states_tree.find_duplicate(compound)
-            if duplicate is None:# or duplicate.score > reward:
+            if duplicate is None:  # or duplicate.score > reward:
                 new_node = self.selected_node.add_child(compound)
                 # Update neighboring bonds to assure consistency in the next selection
                 new_node.compound.compute_neighboring_bonds()
                 molecule = new_node.compound.clean(preserve=True)
                 # new_node.reward = reward
                 new_node.score = score
-                new_node.selection_score = reward #- 0.01 * self.selected_node.depth
+                new_node.selection_score = reward  # - 0.01 * self.selected_node.depth
                 # new_node.valid = new_node.score == 0 and new_node.depth >= self.minimum_depth and all(
-                new_node.valid = new_node.score < Tree.INFINITY and new_node.depth >= self.minimum_depth and all(
-                    _filter.apply(molecule, new_node.score) for _filter in self.filters
+                new_node.valid = (
+                    new_node.score < Tree.INFINITY
+                    and new_node.depth >= self.minimum_depth
+                    and all(
+                        _filter.apply(molecule, new_node.score)
+                        for _filter in self.filters
+                    )
                 )
                 self.update(new_node)
 
                 if duplicate is not None:
                     if len(duplicate.children) > 0:
                         new_node.children = duplicate.children
-                        new_node.unexplore_neighboring_bonds = new_node.unexplore_neighboring_bonds
+                        new_node.unexplore_neighboring_bonds = (
+                            new_node.unexplore_neighboring_bonds
+                        )
                     duplicate.parent.children.remove(duplicate)
 
                 self.states_tree.id_nodes[compound.hash_id] = new_node
@@ -332,7 +360,7 @@ class MonteCarloTreeSearchAgent:
         node.visits += 1
 
         if node.performance > Tree.INFINITY:
-        # if node.performance == 0:
+            # if node.performance == 0:
             return
 
         while node.depth > 0:
@@ -384,11 +412,13 @@ class MonteCarloTreeSearchAgent:
 
         solutions = []
         for node in nodes:
-            solutions.append({
-                "smiles": node.get_compound().clean_smiles(),
-                "depth": node.depth,
-                "score": node.score
-            })
+            solutions.append(
+                {
+                    "smiles": node.get_compound().clean_smiles(),
+                    "depth": node.depth,
+                    "score": node.score,
+                }
+            )
 
         return solutions
 

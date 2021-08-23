@@ -11,7 +11,11 @@ class EnergyCalculatorPrototype(object):
         self.force_field = force_field
 
         if self.force_field not in self.VALID_FORCE_FIELDS:
-            raise ValueError("'{}' cannot handle a '{}' force field!".format(self.__class__.__name__, self.force_field))
+            raise ValueError(
+                "'{}' cannot handle a '{}' force field!".format(
+                    self.__class__.__name__, self.force_field
+                )
+            )
 
     def calculate(self, smiles):
         raise NotImplementedError
@@ -62,7 +66,11 @@ class BabelEnergyCalculator(EnergyCalculatorPrototype):
     FORCE_FIELD_GHEMICAL = "ghemical"
 
     VALID_FORCE_FIELDS = [
-        FORCE_FIELD_UFF, FORCE_FIELD_MMFF96, FORCE_FIELD_MMFF94S, FORCE_FIELD_GAFF, FORCE_FIELD_GHEMICAL
+        FORCE_FIELD_UFF,
+        FORCE_FIELD_MMFF96,
+        FORCE_FIELD_MMFF94S,
+        FORCE_FIELD_GAFF,
+        FORCE_FIELD_GHEMICAL,
     ]
 
     def calculate(self, smiles):
@@ -77,7 +85,7 @@ class EnergyCalculatorFactory(object):
 
     AVAILABLE_CALCULATORS = {
         "rdkit": RdKitEnergyCalculator,
-        "babel": BabelEnergyCalculator
+        "babel": BabelEnergyCalculator,
     }
 
     @staticmethod
