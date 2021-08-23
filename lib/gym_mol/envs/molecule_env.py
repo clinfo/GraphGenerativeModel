@@ -178,7 +178,7 @@ class MoleculeEnv(gym.Env):
             reward = self.calculator.calculate(molecule)
 
             # encourage aromaticity
-            # aromaticity function to be checked too easy
+            # aromaticity function to be checked
             if compound.is_aromatic():
                 print("aromatic !")
                 reward /= 100

@@ -285,12 +285,16 @@ class Compound(object):
 
         if len(current_bonds) > 0:
             for cycle in candidate_cycles:
-
+                cleanup = False
                 # cleanup and break cycle is using a non available bond
                 for bond in cycle:
                     if bond not in sorted_bonds:
                         self.cycle_bonds.remove(cycle)
+                        cleanup = True
                         break
+
+                if cleanup:
+                    break
 
                 candidate_atoms = set()
 
@@ -348,8 +352,10 @@ class Compound(object):
         :return: bool
         """
         ri = self.molecule.GetRingInfo()
+
         if len(ri.AtomRings()) == 0:
             return False
+        print(ri.AtomRings())
         for id in ri.BondRings():
             if not self.molecule.GetBondWithIdx(id).GetIsAromatic():
                 return False
