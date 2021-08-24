@@ -255,14 +255,14 @@ class MonteCarloTreeSearchAgent:
         :param proba_type: str: How to select the expansion
         :return: Tuple(int, int): bond selected
         """
-        possible_bonds = node.unexplore_neighboring_bonds
+        possible_bonds = node.unexplored_neighboring_bonds
         if proba_type == "random":
             p = None
         elif proba_type == "random_on_pred":
-            p = node.compound.get_pred_proba_next_bond(node.unexplore_neighboring_bonds)
+            p = node.compound.get_pred_proba_next_bond(node.unexplored_neighboring_bonds)
         id_bond = np.random.choice(range(len(possible_bonds)), p=p)
         selected_bond = possible_bonds.pop(id_bond)
-        node.unexplore_neighboring_bonds = possible_bonds
+        node.unexplored_neighboring_bonds = possible_bonds
         return selected_bond
 
     def select_bond_MCTS_aromatic(self, node: Tree.Node, proba_type="random"):
@@ -273,11 +273,10 @@ class MonteCarloTreeSearchAgent:
         :param proba_type: str: How to select the expansion
         :return: Tuple(int, int): bond selected
         """
-        possible_bonds = node.unexplore_neighboring_bonds
+        possible_bonds = node.unexplored_neighboring_bonds
         aromatic_queue = deepcopy(node.get_compound().fill_aromatic_queue())
         sorted_bonds = [sorted(bond) for bond in possible_bonds]
-        # print("sorted bonds", sorted_bonds)
-        print("aromatic queue", aromatic_queue)
+        print("aromatic_queue", aromatic_queue)
         id_bond = -1
         if len(aromatic_queue) > 0:
             for i, bond in enumerate(aromatic_queue):
@@ -294,16 +293,17 @@ class MonteCarloTreeSearchAgent:
                 p = None
             elif proba_type == "random_on_pred":
                 p = node.compound.get_pred_proba_next_bond(
-                    node.unexplore_neighboring_bonds
+                    node.unexplored_neighboring_bonds
                 )
 
             id_bond = np.random.choice(range(len(possible_bonds)), p=p)
 
+        # case to handle if cycle bond was removed by remove_full_atom_other_bond
         if id_bond == -1:
             id_bond = np.random.choice(range(len(possible_bonds)), p=None)
 
         selected_bond = possible_bonds.pop(id_bond)
-        node.unexplore_neighboring_bonds = possible_bonds
+        node.unexplored_neighboring_bonds = possible_bonds
 
         return selected_bond
 
@@ -341,8 +341,8 @@ class MonteCarloTreeSearchAgent:
                 if duplicate is not None:
                     if len(duplicate.children) > 0:
                         new_node.children = duplicate.children
-                        new_node.unexplore_neighboring_bonds = (
-                            new_node.unexplore_neighboring_bonds
+                        new_node.unexplored_neighboring_bonds = (
+                            new_node.unexplored_neighboring_bonds
                         )
                     duplicate.parent.children.remove(duplicate)
 

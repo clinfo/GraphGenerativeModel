@@ -109,7 +109,7 @@ class Compound(object):
 
         return molecule
 
-    def clean_smiles(self, preserve=False):
+    def clean_smiles(self, preserve=True):
         return Chem.MolToSmiles(self.clean(preserve))
 
     def clone(self):
@@ -238,7 +238,7 @@ class Compound(object):
         :param bond_type: BondType, selected bond type
         """
         self.last_bondtype = bond_type
-        print(self.last_bondtype)
+        #print(self.last_bondtype)
         self.bond_history[str(selected_bond)] = bond_type
 
     def pass_parent_info(self, parent_compound):
@@ -356,11 +356,14 @@ class Compound(object):
         Check if whole compound is aromatic
         :return: bool
         """
-        ri = self.molecule.GetRingInfo()
 
+        ri = self.clean(preserve=True).GetRingInfo()
+        print("------------> ", self.clean_smiles())
+        print("------------> ", ri.AtomRings())
+        #print(self.molecule.GetRingInfo().ri.AtomRings())
         if len(ri.AtomRings()) == 0:
             return False
-        print("---------------", ri.AtomRings())
+
         for id in ri.BondRings():
             if not self.molecule.GetBondWithIdx(id).GetIsAromatic():
                 return False
@@ -573,7 +576,7 @@ class Cycles:
         self.states = [0] * (self.n_atoms + 1)
 
         self.cycle_number = 0
-        self.cycles = [[] for i in range(10000)]
+        self.cycles = [[] for i in range(100)]
         self.subcycles = []
         self.cycle_sorted_pairs = []
 
@@ -744,7 +747,7 @@ class Tree(object):
             :param parent: parent Tree.Node
             """
             self.compound = compound
-            self.unexplore_neighboring_bonds = (
+            self.unexplored_neighboring_bonds = (
                 self.get_compound().compute_neighboring_bonds()
             )
             self.children = []
@@ -756,6 +759,8 @@ class Tree(object):
             self.depth = 0
             self.valid = False
             self.get_compound().compute_available_cycles()
+            self.cleaned_smiles = self.compute_clean_smiles()
+
 
         def add_child(self, compound):
             child = Tree.Node(compound, self)
@@ -766,9 +771,9 @@ class Tree(object):
 
         def is_expended(self):
             """
-            Does all children node are created ?
+            Are all children nodes created ?
             """
-            return len(self.unexplore_neighboring_bonds) == 0
+            return len(self.unexplored_neighboring_bonds) == 0
 
         def is_terminal(self):
             if self.is_expended():
@@ -780,14 +785,19 @@ class Tree(object):
             return len(self.children) == 0
 
         def get_compound(self):
-            # probably shouldn't clone in getter
-            return self.compound  # .clone()
+            return self.compound
 
         def get_smiles(self):
             return self.compound.get_smiles()
 
+        def compute_clean_smiles(self):
+            return self.compound.clean_smiles()
+
+        def get_clean_smiles(self):
+            return self.cleaned_smiles
+
     def __init__(self, root: Compound):
-        root.set_cycles(Cycles(root).get_cycles_of_sizes(accepted_sizes=[5]))
+        root.set_cycles(Cycles(root).get_cycles_of_sizes(accepted_sizes=[6]))
         self.root = Tree.Node(root, None)
         self.id_nodes = dict()
 

@@ -314,7 +314,7 @@ class MonteCarloTreeSearch:
                 node = self.rollout_step(node, bond_mode=mode)
 
             start_node.score = self.calculate_reward(node.compound)
-            node = start_node
+            node.score = start_node.score
         else:
             node.score = self.calculate_reward(node.compound)
 

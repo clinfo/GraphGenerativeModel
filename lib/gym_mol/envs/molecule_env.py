@@ -73,9 +73,13 @@ class MoleculeEnv(gym.Env):
             compound = self.add_bond(compound, source_atom, destination_atom)
             rollout_compound = self.rollout(compound)
             reward = self.calculate_reward(
-                rollout_compound
+                rollout_compound,
+                rollout=True
             )  # - 0.1 * (len(rollout_compound.molecule.GetBonds()) - len(compound.molecule.GetBonds())), 0.0001)
-            score = self.calculate_reward(compound)
+            score = self.calculate_reward(
+                compound,
+                rollout=False
+            )
         done = self._is_done(compound, reward)
 
         info = {}
@@ -125,12 +129,14 @@ class MoleculeEnv(gym.Env):
             compound.aromatic_queue.pop(0)
             # Useless because of selection effect
             # compound.aromatic_bonds_counter+=1
+            """
             print(
                 "new bond aromatic info = ",
                 compound.aromatic_bonds_counter,
                 compound.get_last_bondtype(),
                 bond_type,
             )
+            """
 
         elif select_type == "best":
             per_bond_rewards = {}
@@ -195,7 +201,7 @@ class MoleculeEnv(gym.Env):
         actions = self.get_valid_actions(smiles, atoms, True, True, set([4, 6]), True)
         return actions
 
-    def calculate_reward(self, compound: Compound):
+    def calculate_reward(self, compound: Compound, rollout=True):
         """
         Calculate the reward of the compound based on the requested force field.
         If the molecule is not valid, the reward will be infinity.
@@ -214,10 +220,10 @@ class MoleculeEnv(gym.Env):
             reward = self.calculator.calculate(molecule)
 
             # encourage aromaticity
-            # aromaticity function to be checked
-            if compound.is_aromatic():
-                print("aromatic !")
-                reward /= 100
+            if rollout == False:
+                if compound.is_aromatic() :
+                    print("aromatic !")
+                    reward /= 100
 
             if np.isnan(reward):
                 raise ValueError("NaN reward encountered: {}".format(smiles))
