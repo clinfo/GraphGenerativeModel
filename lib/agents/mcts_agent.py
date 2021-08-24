@@ -25,6 +25,7 @@ class MonteCarloTreeSearchAgent:
         select_method: str,
         breath_to_depth_ratio: float = 0,
         tradeoff_param: float = 0,
+        force_begin_ring: bool = False,
     ):
         """
         :param minimum_depth: from the input parameters (see README.md for details)
@@ -39,6 +40,7 @@ class MonteCarloTreeSearchAgent:
         self.breath_to_depth_ratio = breath_to_depth_ratio
         self.filters = filters
         self.tradeoff_param = tradeoff_param
+        self.force_begin_ring = force_begin_ring
         self.list_reward = []
         self.select_dict = {
             "breath_to_depth": "select_breath_to_depth",
@@ -129,6 +131,17 @@ class MonteCarloTreeSearchAgent:
         if len(in_progress_aromatic_node) > 0:
             return in_progress_aromatic_node[0]
         else:
+            if self.force_begin_ring:
+                # All Cycle have been created and the suppression is done only one time
+                if (
+                    len(self.states_tree.root.compound.available_cycles) == 0
+                    and len(self.states_tree.root.unexplored_neighboring_bonds) != 0
+                ):
+                    # Delete all possible branches except the one after the rings
+                    max_depth = max(self.states_tree.group())
+                    for node in self.states_tree.flatten():
+                        if node.depth < max_depth:
+                            node.unexplored_neighboring_bonds = []
             return self.select_MCTS_classic()
 
     def select_breath_to_depth(self):
@@ -259,7 +272,9 @@ class MonteCarloTreeSearchAgent:
         if proba_type == "random":
             p = None
         elif proba_type == "random_on_pred":
-            p = node.compound.get_pred_proba_next_bond(node.unexplored_neighboring_bonds)
+            p = node.compound.get_pred_proba_next_bond(
+                node.unexplored_neighboring_bonds
+            )
         id_bond = np.random.choice(range(len(possible_bonds)), p=p)
         selected_bond = possible_bonds.pop(id_bond)
         node.unexplored_neighboring_bonds = possible_bonds

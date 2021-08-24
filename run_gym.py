@@ -1,6 +1,7 @@
 import argparse
 from functools import partial
 import json
+from lib.data_structures import Cycles
 import logging
 import gym
 import numpy as np
@@ -58,6 +59,7 @@ def run(config, seed=None):
             select_method=config.select_method,
             breath_to_depth_ratio=config.breath_to_depth_ratio,
             tradeoff_param=config.tradeoff_param,
+            force_begin_ring=config.force_begin_ring,
         )
     elif config.agent == "Random":
         agent = RandomAgent()
@@ -69,6 +71,9 @@ def run(config, seed=None):
     for i, compound in enumerate(
         molecule_loader.fetch(molecules_to_process=config.generate)
     ):
+        compound.set_cycles(
+            Cycles(compound).get_cycles_of_sizes(config.accepted_cycle_sizes)
+        )
         env.set_compound(compound)
         env.reset()
         agent.reset(compound)
