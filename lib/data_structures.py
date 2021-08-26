@@ -276,7 +276,6 @@ class Compound(object):
 
     def set_cycles(self, cycles):
         self.cycle_bonds = cycles
-        print(self.cycle_bonds)
 
     def compute_available_cycles(self):
         """
@@ -325,7 +324,6 @@ class Compound(object):
         self.available_cycles = [
             cycle for cycle in self.available_cycles for _ in range(2)
         ]
-        print("self.available_cycles = ", self.available_cycles)
         return self.available_cycles
 
     def fill_aromatic_queue(self):
@@ -365,8 +363,6 @@ class Compound(object):
 
         m = Chem.MolFromSmiles(self.clean_smiles(preserve=True))
         ri = m.GetRingInfo()
-        print("------------> ", self.clean_smiles())
-        print("------------> ", ri.AtomRings())
         # print(self.molecule.GetRingInfo().ri.AtomRings())
         if len(ri.AtomRings()) == 0:
             return False

@@ -129,7 +129,14 @@ class MonteCarloTreeSearchAgent:
         """
         in_progress_aromatic_node = self.get_node_aromatic_process()
         if len(in_progress_aromatic_node) > 0:
-            return in_progress_aromatic_node[0]
+            node = in_progress_aromatic_node[0]
+            if node.is_terminal():
+                logging.debug("Reached terminal node")
+                node.selection_score *= 1.1
+                self.update(node)
+                return self.select_unvisited_node()
+            else:
+                return node
         else:
             if self.force_begin_ring:
                 # All Cycle have been created and the suppression is done only one time
@@ -291,7 +298,6 @@ class MonteCarloTreeSearchAgent:
         possible_bonds = node.unexplored_neighboring_bonds
         aromatic_queue = deepcopy(node.get_compound().fill_aromatic_queue())
         sorted_bonds = [sorted(bond) for bond in possible_bonds]
-        print("aromatic_queue", aromatic_queue)
         id_bond = -1
         if len(aromatic_queue) > 0:
             for i, bond in enumerate(aromatic_queue):
@@ -299,7 +305,6 @@ class MonteCarloTreeSearchAgent:
                     id_bond = sorted_bonds.index(bond)
                     # put chosen bond in first position of the aromatic queue
                     chosen_bond = node.get_compound().aromatic_queue.pop(i)
-                    print("chosen bond", chosen_bond)
                     # We need the lenght of the aromatic queue to be superior to zero in add_bond
                     node.get_compound().aromatic_queue.insert(0, chosen_bond)
                     break

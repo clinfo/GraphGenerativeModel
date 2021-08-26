@@ -125,14 +125,6 @@ class MoleculeEnv(gym.Env):
             compound.aromatic_queue.pop(0)
             # Useless because of selection effect
             # compound.aromatic_bonds_counter+=1
-            """
-            print(
-                "new bond aromatic info = ",
-                compound.aromatic_bonds_counter,
-                compound.get_last_bondtype(),
-                bond_type,
-            )
-            """
 
         elif select_type == "best":
             per_bond_rewards = {}
@@ -218,7 +210,6 @@ class MoleculeEnv(gym.Env):
             # encourage aromaticity
             if rollout == False:
                 if compound.is_aromatic():
-                    print("aromatic !")
                     reward /= 100
 
             if np.isnan(reward):
