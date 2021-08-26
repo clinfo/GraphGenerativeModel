@@ -162,12 +162,13 @@ class RingCountCalculator(AbstractCalculator):
 
 class TanimotoCalculator(AbstractCalculator):
 
-    def __init__(self, tanimoto_smiles):
-        assert tanimoto_smiles is not None, \
-        "To use tanimoto similarity as a reward you must enter a smile in the \
-            fiels 'tanimoto_smile'"
-        mol = Chem.MolFromSmiles(tanimoto_smiles)
-        self.compared_fps = Chem.RDKFingerprint(mol)
+    def __init__(self, reward_calculator, tanimoto_smiles):
+        if reward_calculator == "tanimoto" or "tanimoto" in reward_calculator:
+            assert tanimoto_smiles is not None, \
+            "To use tanimoto similarity as a reward you must enter a smile in the \
+                fiels 'tanimoto_smile'"
+            mol = Chem.MolFromSmiles(tanimoto_smiles)
+            self.compared_fps = Chem.RDKFingerprint(mol)
 
 
     def calculate(self, mol: Chem.Mol) -> float:
@@ -286,7 +287,7 @@ class CalculatorFactory:
             CalculatorFactory.QED: QedCalculator(),
             CalculatorFactory.SA: SaCalculator(),
             CalculatorFactory.RING_COUNT: RingCountCalculator(),
-            CalculatorFactory.TANIMOTO: TanimotoCalculator(config.tanimoto_smiles)
+            CalculatorFactory.TANIMOTO: TanimotoCalculator(config.reward_calculator, config.tanimoto_smiles)
         }
         opt={}
         for key in options.keys():
