@@ -256,10 +256,19 @@ class EvaluationAggregate(object):
             for level, node in best_node.items():
                 smiles = node.compound.clean_smiles(preserve=True)
                 filename = sketcher.draw(smiles, num_mol, node.score)
-                metadata = [filename, node.depth, node.score, node.compound.is_aromatic()]
-                draw_metadata = draw_metadata.append(dict(zip(draw_metadata.columns, metadata)), ignore_index=True)
+                metadata = [
+                    filename,
+                    node.depth,
+                    node.score,
+                    node.compound.is_aromatic(),
+                ]
+                draw_metadata = draw_metadata.append(
+                    dict(zip(draw_metadata.columns, metadata)), ignore_index=True
+                )
 
-        draw_metadata.to_csv(f"{self.config.experiment_name}_{self.config.seed}/metadata.csv")
+        draw_metadata.to_csv(
+            f"{self.config.experiment_name}_{self.config.seed}/metadata.csv"
+        )
 
     def save(self):
         """

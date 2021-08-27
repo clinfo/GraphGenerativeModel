@@ -681,7 +681,9 @@ class Cycles:
         for cycle in self.cycles:
             if len(cycle) > 3:
                 for id in cycle:
-                    self.cycles_within_cycle(cycle, id, id, 0, self.max_cycle_size, [], 0)
+                    self.cycles_within_cycle(
+                        cycle, id, id, 0, self.max_cycle_size, [], 0
+                    )
 
     def get_cycle_bonds(self, cycle):
         cycle_bonds = []
