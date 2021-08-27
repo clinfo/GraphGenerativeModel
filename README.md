@@ -30,6 +30,11 @@ Relevant files:
 - `environment.yml` - Requirements and dependencies
 - `run.py` - Command-line interface. You use this file to run the optimizer.
 
+Open ai gym files:
+- `lib/gym_mol/envs/molecule_env.py` - Molecule environment where the rollout is computed
+- `lib/agents/mcts_agents.py` - Monte Carlo Tree Search implementation
+- `run_gym.py` - Command-line interface. You use this file to run the optimizer (OpenAI Gym version).
+
 Trivial files:
 - `data/*` - Sample datasets and configuration files
 - `img/*` - Sample molecules generated (used in this readme)
@@ -40,17 +45,29 @@ To run the code, you will need to have a configuration file (in JSON format). An
 The options are (details for each option can be found below):
 
 - **dataset**: path to the dataset file (jbl file, output of GCN-K) (mandatory)
+- **experiment_name**: used to name the file generated (mandatory)
 - **generate**: how many molecules to generate (default: 10) 
 - **threshold**: Minimum threshold for potential bonds (default: 0.15)
+- **concurrent_run**: Number of run to do in parrallel for a more stable metric. (default: None, ie: no concurrent run)
+
+- **agent**: What type of agent to use (either MonteCarloTreeSearch or Random)
 - **monte_carlo_iterations**: How many times to iterate over the tree (default: 1000)
+- **select_method**: Selection process, either "MCTS_classic", "breath_to_depth", "random", "MCTS_aromatic" (default: "MCTS_classic")
+- **rollout_type**: To use rollout or not, either "standard", "no_rollout" (default: "standard") 
+- **breath_to_depth_ratio**: Optimize for exploitation or exploration (default: 1) (only usefull in "breath_to_depth" selection method)
+- **tradeoff_param**: exploration / exploitation tradeoff parameter use in the tree policy of the MCTS (default: 0)
+- **accepted_cycle_sizes**: List of cycle size to take into account if the "MCTS_aromatic" selection method is selected (default: [5, 6])
+- **force_begin_ring**: In the selection "MCTS_aromatic", force the first branch to be all possible ring and nothing else to assure a ring in all molecule generated (default: False)
+- **max_mass**: Maximum acceptable mass of a molecule to consider it correct (default: 100)
+
 - **minimum_output_depth**: The output needs at least this many bonds (default: 20)
 - **output_type**: Options: fittest | deepest | per_level (default: fittest)
-- **breath_to_depth_ratio**: Optimize for exploitation or exploration (default: 1)
 - **reward_calculator**: How is the cost calculated? See below for a full list of options. (default: compound_energy_babel_mmff)
+- **reward_weights**: In case of multiple reward, a list of weight can be input, also usefull when a reward needs to be maximize, in that case set a weight of -1
+- **tanimoto_smiles**: In case the reward is "tanimoto", this argument will provide the comparaison smiles (default: None)
 - **filters**: If any of these filters are met, the cost is set to infinity. Multiple options can be specified. Options: non_zero_reward, positive_reward, molecular_weight (default: ["positive_reward","molecular_weight"])
-- **draw**: If specified, will draw the molecules to this folder (default: null)
 - **logging**: Logging level. Smaller number means more logs (use increments of 10, between 10 and 50) (default: 50)
-
+- **seed**: seed to fix the result of the training (default: None)
 
 ## Usage
 
@@ -58,6 +75,9 @@ The options are (details for each option can be found below):
 ```bash
 python run.py {config_file}
 ```
+
+For open-ai-gym it is the same process with `run_gym.py`
+
 
 ### threshold
 
@@ -89,6 +109,18 @@ Generally, the deepest levels of the tree are not yet good enough because only a
 to expand on them.
 
 Note: this parameter influences execution time the most
+
+### select_method
+There is 4 possible selection method:
+- `breath_to_depth`: This selection method is detailed in the breath_to_depth_ration parameter explaination
+- `MCTS_classic`: standard MCTS implementation with a tree policy following similar formula as [UnitMCTS](https://arxiv.org/pdf/2010.16399.pdf)
+- `random`: This selection is very close to MCTS_classic, but during the expansion phase the chosen node to expanded will be base on the output of the kgcn model
+- `MCTS_aromatic`: This selection process expand with all possible cycle before continuing with a MCTS_classic selection. At each new node, possible cycle will be computed and if the current node is in a cycle. All priority will be given to create the node for this cycle. 
+
+### rollout_type
+
+- `standard`: The rollout method randomly choose additional neighboring bond until either there is no more neighbor or the molecule mass is too big. Then the reward is computed on this last molecule.
+- `no_rollout`: The reward is computed on the actual state of the compound without anyother processing.
 
 ### reward_calculator
 
@@ -137,6 +169,7 @@ Everything else, not energy calculation related.
 - `sa` - The Synthetic Accessibility score (no modifications made to the base score)
 - `mw` - The Molecular Weight (no modifications made to the base score)
 - `ring_count` - Number of rings present: (exact formula = `-(ring_count)`)
+- `tanimoto` - Compute the tanimoto similarity against a smiles given in the config
 
 
 Modifications to the formulas can be easily added (`lib/calculators.py`)    
@@ -151,6 +184,7 @@ one or more filters. The list of currently available filters is:
 1. "non_zero_reward": Filters out all null/zero rewards
 2. "positive_reward": Filters out all rewards below zero
 3. "molecular_weight": Filter out all molecules with a molecular weight outside the 300-500 range
+4. "toxic_substructure": Filter all molecule which have substructure present in the `mcf.csv` and `whi_pains.csv` files in the `toxic_substructure` folder.
 
 #### 1. Non Zero Reward Filter - Tips
 
@@ -190,6 +224,8 @@ Sets the minimum tree level to look at when picking the winner.
 Nodes with depth smaller than "minimum_output_depth" are ignored.
 
 ### breath_to_depth_ratio
+This parameter isonly useful with the selection method "breath_to_depth"
+
 Molecule energy is not a good way to select the node to expand since it tends to favor smaller molecules.
 The best working solution we found is a two-factor pseudo-random one.
 
