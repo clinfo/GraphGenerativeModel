@@ -68,13 +68,10 @@ class MoleculeEnv(gym.Env):
             logging.debug("Selected bond is already in compound")
             reward = np.Infinity
             score = np.Infinity
-            # reward = 0
         else:
             compound = self.add_bond(compound, source_atom, destination_atom)
             rollout_compound = self.rollout(compound)
-            reward = self.calculate_reward(
-                rollout_compound, rollout=True
-            )  # - 0.1 * (len(rollout_compound.molecule.GetBonds()) - len(compound.molecule.GetBonds())), 0.0001)
+            reward = self.calculate_reward(rollout_compound, rollout=True)
             score = self.calculate_reward(compound, rollout=False)
         done = self._is_done(compound, reward)
 
@@ -158,15 +155,13 @@ class MoleculeEnv(gym.Env):
         :return Compound
         """
         compound = compound.clone()
-        counter = 0
-        while compound.get_mass() < self.max_mass or counter > 5:
+        while compound.get_mass() < self.max_mass:
             if len(compound.neighboring_bonds) > 0:
                 id_bond = np.random.choice(range(len(compound.neighboring_bonds)))
                 source_atom, destionation_atom = compound.neighboring_bonds[id_bond]
                 compound = self.add_bond(
                     compound, source_atom, destionation_atom, "best", is_rollout=True
                 )
-                counter += 1
             else:
                 break
         return compound
@@ -215,7 +210,6 @@ class MoleculeEnv(gym.Env):
             if np.isnan(reward):
                 raise ValueError("NaN reward encountered: {}".format(smiles))
 
-            #   logging.debug("{} : {} : {:.6f}".format(compound.get_smiles(), Chem.MolToSmiles(molecule), reward))
             return reward
 
         except (ValueError, RuntimeError, AttributeError) as e:
@@ -223,8 +217,6 @@ class MoleculeEnv(gym.Env):
                 "[INVALID REWARD]: {} - {}".format(compound.get_smiles(), str(e))
             )
             return np.Infinity
-
-        #   return 0
 
     def _is_done(self, compound: Compound, reward: float):
         """

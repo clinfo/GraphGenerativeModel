@@ -29,6 +29,7 @@ class Config(NamedTuple):
 
     reward_calculator: Optional[str] = CalculatorFactory.COMPOUND_ENERGY_BABEL_MMFF
     reward_weights: Optional[List[float]] = None
+    tanimoto_smiles: Optional[str] = None
 
     kgcn_model_py: str = None
     kgcn_model: str = None
