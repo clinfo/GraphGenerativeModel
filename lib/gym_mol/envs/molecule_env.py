@@ -210,7 +210,7 @@ class MoleculeEnv(gym.Env):
             # encourage aromaticity
             if rollout == False:
                 if compound.is_aromatic():
-                    reward /= 100
+                    reward /= 2
 
             if np.isnan(reward):
                 raise ValueError("NaN reward encountered: {}".format(smiles))

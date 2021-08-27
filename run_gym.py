@@ -72,7 +72,7 @@ def run(config, seed=None):
         molecule_loader.fetch(molecules_to_process=config.generate)
     ):
         compound.set_cycles(
-            Cycles(compound).get_cycles_of_sizes(config.accepted_cycle_sizes)
+            Cycles(compound, config).get_cycles_of_sizes(config.accepted_cycle_sizes)
         )
         env.set_compound(compound)
         env.reset()

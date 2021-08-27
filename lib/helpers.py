@@ -83,3 +83,5 @@ class Sketcher(object):
             # save png to file
             with open(filename, "wb") as png_file:
                 png_file.write(img)
+
+            return filename

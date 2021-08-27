@@ -116,15 +116,18 @@ class MonteCarloTreeSearchAgent:
         return node
 
     def get_node_aromatic_process(self):
+        """
+        Return the node use by the aromatic mode if the creation of a cycle is ongoing.
+        """
         return [
             n for n in self.states_tree.flatten() if len(n.compound.aromatic_queue) > 0
         ]
 
     def select_MCTS_aromatic(self):
         """
-        Walk through the tree and select one of the node to expand.
-        If the node selected can't be expended, another node is selected randomly
-        from all the node that can be expanded in the tree.
+        Select the next node, if there is an aromatic process in going then
+        the next node will be the one enabling this process. Otherwise the selection
+        is similar to MCTS_classic
         :return: Tree.Node: the node selected to expand
         """
         in_progress_aromatic_node = self.get_node_aromatic_process()

@@ -562,7 +562,7 @@ class Cycles:
     Used only once in Tree class
     """
 
-    def __init__(self, compound):
+    def __init__(self, compound, config):
         self.compound = compound
         self.bonds = compound.get_bonds()
 
@@ -579,6 +579,7 @@ class Cycles:
         self.cycles = [[] for i in range(1000)]
         self.subcycles = []
         self.cycle_sorted_pairs = []
+        self.max_cycle_size = max(config.accepted_cycle_sizes)
 
         self.compute_all_cycles()
 
@@ -680,7 +681,7 @@ class Cycles:
         for cycle in self.cycles:
             if len(cycle) > 3:
                 for id in cycle:
-                    self.cycles_within_cycle(cycle, id, id, 0, len(cycle), [], 0)
+                    self.cycles_within_cycle(cycle, id, id, 0, self.max_cycle_size, [], 0)
 
     def get_cycle_bonds(self, cycle):
         cycle_bonds = []
