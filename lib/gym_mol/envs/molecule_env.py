@@ -218,7 +218,6 @@ class MoleculeEnv(gym.Env):
             )
             return np.Infinity
 
-
     def _is_done(self, compound: Compound, reward: float):
         """
         Returns whether episode is over.
