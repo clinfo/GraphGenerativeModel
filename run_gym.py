@@ -1,6 +1,7 @@
 import argparse
 from functools import partial
 import json
+from lib.data_structures import Cycles
 import logging
 import gym
 import numpy as np
@@ -25,20 +26,27 @@ import concurrent.futures
 
 import random
 
+
 def run(config, seed=None):
     random.seed(43)
     if seed is not None:
         logging.info(f"Starting run with seed {seed}")
         np.random.seed(seed)
 
-    molecule_loader = MoleculeLoader(file_path=config.dataset, threshold=config.threshold)
-    reward_calculator = CalculatorFactory.create(config.reward_calculator, config.reward_weights, config)
+    molecule_loader = MoleculeLoader(
+        file_path=config.dataset, threshold=config.threshold
+    )
+    reward_calculator = CalculatorFactory.create(
+        config.reward_calculator, config.reward_weights, config
+    )
     filters = [FilterFactory.create(filter_) for filter_ in config.filters]
 
     eval = Evaluation(
-        config.experiment_name + f"_{seed}" if seed is not None else config.experiment_name,
+        config.experiment_name + f"_{seed}"
+        if seed is not None
+        else config.experiment_name,
         reward_calculator,
-        config
+        config,
     )
     env = gym.make("molecule-v0")
     env.initialize(reward_calculator, config.max_mass, config.rollout_type)
@@ -50,14 +58,22 @@ def run(config, seed=None):
             output_type=config.output_type,
             select_method=config.select_method,
             breath_to_depth_ratio=config.breath_to_depth_ratio,
-            tradeoff_param=config.tradeoff_param
+            tradeoff_param=config.tradeoff_param,
+            force_begin_ring=config.force_begin_ring,
         )
     elif config.agent == "Random":
         agent = RandomAgent()
     else:
-        raise ValueError(f"Agent: {config.agent} not implemented. Choose from 'MonteCarloTreeSearch', 'Random'")
+        raise ValueError(
+            f"Agent: {config.agent} not implemented. Choose from 'MonteCarloTreeSearch', 'Random'"
+        )
 
-    for i, compound in enumerate(molecule_loader.fetch(molecules_to_process=config.generate)):
+    for i, compound in enumerate(
+        molecule_loader.fetch(molecules_to_process=config.generate)
+    ):
+        compound.set_cycles(
+            Cycles(compound, config).get_cycles_of_sizes(config.accepted_cycle_sizes)
+        )
         env.set_compound(compound)
         env.reset()
         agent.reset(compound)
@@ -65,7 +81,9 @@ def run(config, seed=None):
         done = False
         logging.info(f"Molecule {i}/{config.generate}, seed {seed}")
         for k in range(config.monte_carlo_iterations):
-            logging.debug(f"Iteration {k}/{config.monte_carlo_iterations}, {Chem.MolToSmiles(compound.clean(preserve=True))}, Reward {reward}, Score {score}")
+            logging.debug(
+                f"Iteration {k}/{config.monte_carlo_iterations}, {Chem.MolToSmiles(compound.clean(preserve=True))}, Reward {reward}, Score {score}"
+            )
             compound, action = agent.act(compound, reward, score)
             compound, reward, done, info, score = env.step(compound, action)
             if done:
@@ -78,11 +96,12 @@ def run(config, seed=None):
     eval.compute_overall_metric()
     return eval
 
+
 def main():
     RDLogger.logger().setLevel(RDLogger.CRITICAL)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('config', type=str)
+    parser.add_argument("config", type=str)
     args = parser.parse_args()
 
     config = Config.load(args.config)
@@ -108,6 +127,7 @@ def main():
     else:
         eval = run(config)
         eval.save()
+
 
 if __name__ == "__main__":
     main()

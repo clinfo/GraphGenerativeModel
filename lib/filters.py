@@ -15,26 +15,22 @@ _filters = [Chem.MolFromSmarts(x) for x in
 
 
 class AbstractFilter(metaclass=ABCMeta):
-
     @abstractmethod
     def apply(self, mol: Chem.Mol, reward: float) -> bool:
         raise NotImplementedError
 
 
 class NonZeroRewardFilter(AbstractFilter):
-
     def apply(self, mol: Chem.Mol, reward: float) -> bool:
         return reward != 0
 
 
 class PositiveRewardFilter(AbstractFilter):
-
     def apply(self, mol: Chem.Mol, reward: float) -> bool:
         return reward > 0
 
 
 class MolecularWeightFilter(AbstractFilter):
-
     def apply(self, mol: Chem.Mol, reward: float) -> bool:
         mol.UpdatePropertyCache()
         return 200 < ExactMolWt(mol) < 500

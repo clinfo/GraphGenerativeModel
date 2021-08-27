@@ -5,12 +5,14 @@ import re
 import numpy as np
 from rdkit import Chem
 from rdkit.Chem.Descriptors import ExactMolWt
+from copy import deepcopy
 
 
 class Compound(object):
     """
     Contains the atoms as an rdkit.Mol and the set of possible bonds as a list of tuples
     """
+
     def __init__(self, molecule, bonds, bonds_prediction):
         """
         :param molecule: rdKit.Mol
@@ -22,6 +24,12 @@ class Compound(object):
         self.initial_bonds = bonds.copy()
         self.neighboring_bonds = self.compute_neighboring_bonds()
         self.bond_history = dict()
+        self.cycle_bonds = []
+        self.available_cycles = []
+        self.aromatic_queue = []
+        self.hash_id = -1
+        self.last_bondtype = 0
+        self.aromatic_bonds_counter = 0
 
     def get_smiles(self):
         return Chem.MolToSmiles(self.molecule)
@@ -49,7 +57,7 @@ class Compound(object):
             return self.clean(preserve=True).GetAtoms()
         else:
             atom_ids = set()
-            for bond in  self.molecule.GetBonds():
+            for bond in self.molecule.GetBonds():
                 atom_ids.add(bond.GetBeginAtomIdx())
                 atom_ids.add(bond.GetEndAtomIdx())
             return set([self.molecule.GetAtomWithIdx(id) for id in atom_ids])
@@ -101,7 +109,7 @@ class Compound(object):
 
         return molecule
 
-    def clean_smiles(self, preserve=False):
+    def clean_smiles(self, preserve=True):
         return Chem.MolToSmiles(self.clean(preserve))
 
     def clone(self):
@@ -136,15 +144,13 @@ class Compound(object):
                 candidate_atoms.add(bond.GetBeginAtomIdx())
                 candidate_atoms.add(bond.GetEndAtomIdx())
             for source_atom, destination_atom in candidate_bonds:
-                if source_atom in candidate_atoms or destination_atom in candidate_atoms:
+                if (
+                    source_atom in candidate_atoms
+                    or destination_atom in candidate_atoms
+                ):
                     self.neighboring_bonds.append((source_atom, destination_atom))
         # root case
         else:
-            # for begin_atom_id, end_atom_id in candidate_bonds:
-            #     begin_atom_num = molecule.GetAtomWithIdx(int(begin_atom_id)).GetAtomicNum()
-            #     end_atom_num = molecule.GetAtomWithIdx(int(end_atom_id)).GetAtomicNum()
-            #     if  begin_atom_num == end_atom_num == 6:
-            #         self.neighboring_bonds.append((begin_atom_id, end_atom_id))
             self.neighboring_bonds = list(candidate_bonds)
 
         return self.neighboring_bonds
@@ -154,8 +160,6 @@ class Compound(object):
         :return: float: mass of the molecule
         """
         mol = self.clean(preserve=True)
-        # mol.UpdatePropertyCache()
-        # return ExactMolWt(mol)
         atoms = mol.GetAtoms()
         return np.sum([a.GetMass() for a in atoms])
 
@@ -177,7 +181,9 @@ class Compound(object):
         Return all atom id of the molecule which can't have any additional bond
         :return: List(int): Id of the atoms
         """
-        return [i for i, a in enumerate(self.molecule.GetAtoms()) if self.is_atom_full(a)]
+        return [
+            i for i, a in enumerate(self.molecule.GetAtoms()) if self.is_atom_full(a)
+        ]
 
     def is_atom_full(self, atom):
         """
@@ -197,7 +203,9 @@ class Compound(object):
         used = np.sum([b.GetValenceContrib(atom) for b in atom.GetBonds()])
         return valence - used
 
-    def filter_bond_type(self, source_atom_id, destination_atom_id, available_bond_type):
+    def filter_bond_type(
+        self, source_atom_id, destination_atom_id, available_bond_type
+    ):
         """
         Filter bond type possible between the two selected atoms.
         :param source_atom_id: int
@@ -208,7 +216,12 @@ class Compound(object):
         available_bond_type = available_bond_type.copy()
         source_atom = self.molecule.GetAtomWithIdx(source_atom_id)
         destination_atom = self.molecule.GetAtomWithIdx(destination_atom_id)
-        valence_possible = min([self.get_free_valence(source_atom), self.get_free_valence(destination_atom)])
+        valence_possible = min(
+            [
+                self.get_free_valence(source_atom),
+                self.get_free_valence(destination_atom),
+            ]
+        )
         for i, bond in list(enumerate(available_bond_type))[::-1]:
             if valence_possible < int(bond):
                 available_bond_type.pop(i)
@@ -224,7 +237,18 @@ class Compound(object):
         :param selected_bond: Tuple(int, int)
         :param bond_type: BondType, selected bond type
         """
+        self.last_bondtype = bond_type
+        # print(self.last_bondtype)
         self.bond_history[str(selected_bond)] = bond_type
+
+    def pass_parent_info(self, parent_compound):
+        self.cycle_bonds = parent_compound.cycle_bonds.copy()
+        self.bond_history.update(parent_compound.bond_history)
+        self.aromatic_queue = parent_compound.aromatic_queue.copy()
+        self.last_bondtype = parent_compound.last_bondtype
+
+        # delete parent aromatic queue
+        parent_compound.aromatic_queue = []
 
     def compute_hash(self):
         """
@@ -245,10 +269,105 @@ class Compound(object):
         return predition_score / sum(predition_score)
 
     def get_atom_id_used(self):
-        output  = []
+        output = []
         for bond_string in self.bond_history.keys():
-            output += re.findall('\d+', bond_string)
+            output += re.findall("\d+", bond_string)
         return np.sort(np.unique(output))
+
+    def set_cycles(self, cycles):
+        self.cycle_bonds = cycles
+
+    def compute_available_cycles(self):
+        """
+        Compute the list of available cycles from the current molecule
+        :return: list
+        """
+        self.remove_full_atom_other_bond()
+        molecule = self.get_molecule()
+        # print("self.cycle_bonds", self.cycle_bonds)
+        candidate_cycles = deepcopy(self.cycle_bonds)
+        sorted_bonds = [sorted(bond) for bond in self.get_bonds()]
+        current_bonds = molecule.GetBonds()
+        self.available_cycles = []
+
+        if len(current_bonds) > 0:
+            for cycle in candidate_cycles:
+                cleanup = False
+                # cleanup and break cycle is using a non available bond
+                for bond in cycle:
+                    if bond not in sorted_bonds:
+                        self.cycle_bonds.remove(cycle)
+                        cleanup = True
+                        break
+
+                if cleanup:
+                    break
+
+                candidate_atoms = set()
+
+                for bond in current_bonds:
+                    candidate_atoms.add(bond.GetBeginAtomIdx())
+                    candidate_atoms.add(bond.GetEndAtomIdx())
+
+                for source_atom, destination_atom in cycle:
+                    if (
+                        source_atom in candidate_atoms
+                        or destination_atom in candidate_atoms
+                    ):
+                        self.available_cycles.append(cycle)
+                        break
+        # root case
+        else:
+            self.available_cycles = candidate_cycles
+
+        # 2 verions of the cycles are allowed so we duplicate every available cycles_within_cycles
+        self.available_cycles = [
+            cycle for cycle in self.available_cycles for _ in range(2)
+        ]
+        return self.available_cycles
+
+    def fill_aromatic_queue(self):
+        """
+        Pass the current aromatic queue if not empty
+        If empty, compute available cycles then pick a cycle among the available cycles
+        :return: list
+        """
+        if self.aromatic_queue == []:
+            if len(self.available_cycles) > 0:
+                self.aromatic_queue = self.available_cycles.pop(0)
+                return self.aromatic_queue
+        else:
+            return self.aromatic_queue
+        return []
+
+    def get_aromatic_queue(self):
+        return self.aromatic_queue
+
+    def reset_aromatic_queue(self):
+        self.aromatic_queue = []
+
+    def get_last_bondtype(self):
+        return self.last_bondtype
+
+    def is_aromatic(self):
+        """
+        Check if whole compound is aromatic
+        :return: bool
+        """
+
+        def isRingAromatic(mol, bondRing):
+            for id in bondRing:
+                if not mol.GetBondWithIdx(id).GetIsAromatic():
+                    return False
+            return True
+
+        m = Chem.MolFromSmiles(self.clean_smiles(preserve=True))
+        ri = m.GetRingInfo()
+        # print(self.molecule.GetRingInfo().ri.AtomRings())
+        if len(ri.AtomRings()) == 0:
+            return False
+
+        return any([isRingAromatic(m, ring) for ring in ri.BondRings()])
 
 
 class CompoundBuilder(object):
@@ -259,9 +378,50 @@ class CompoundBuilder(object):
 
     """Atomic Symbols Map"""
     ATOM_SYMBOL_MAPPING = [
-        'C', 'N', 'O', 'S', 'F', 'Si', 'P', 'Cl', 'Br', 'Mg', 'Na', 'Ca', 'Fe', 'As', 'Al', 'I',
-        'B', 'V', 'K', 'Tl', 'Yb', 'Sb', 'Sn', 'Ag', 'Pd', 'Co', 'Se', 'Ti', 'Zn', 'H', 'Li',
-        'Ge', 'Cu', 'Au', 'Ni', 'Cd', 'In', 'Mn', 'Zr', 'Cr', 'Pt', 'Hg', 'Pb', '*'
+        "C",
+        "N",
+        "O",
+        "S",
+        "F",
+        "Si",
+        "P",
+        "Cl",
+        "Br",
+        "Mg",
+        "Na",
+        "Ca",
+        "Fe",
+        "As",
+        "Al",
+        "I",
+        "B",
+        "V",
+        "K",
+        "Tl",
+        "Yb",
+        "Sb",
+        "Sn",
+        "Ag",
+        "Pd",
+        "Co",
+        "Se",
+        "Ti",
+        "Zn",
+        "H",
+        "Li",
+        "Ge",
+        "Cu",
+        "Au",
+        "Ni",
+        "Cd",
+        "In",
+        "Mn",
+        "Zr",
+        "Cr",
+        "Pt",
+        "Hg",
+        "Pb",
+        "*",
     ]
 
     """Hybridization Type Map"""
@@ -270,7 +430,7 @@ class CompoundBuilder(object):
         Chem.rdchem.HybridizationType.SP2,
         Chem.rdchem.HybridizationType.SP3,
         Chem.rdchem.HybridizationType.SP3D,
-        Chem.rdchem.HybridizationType.SP3D2
+        Chem.rdchem.HybridizationType.SP3D2,
     ]
 
     """Bonds Map"""
@@ -311,20 +471,22 @@ class CompoundBuilder(object):
         :param features: atom data
         :return: dict
         """
-        result={
+        result = {
             "symbol": self.get_chemical_symbol(features, sample=True),
             "degree": np.argmax(features[44:55]),
             "implicit_valence": np.argmax(features[55:62]),
             "formal_charge": features[62],
             "radical_electrons": features[63],
-            "hybridization": self.HYBRIDIZATION_MAPPING[int(np.argmax(features[64:69]))],
+            "hybridization": self.HYBRIDIZATION_MAPPING[
+                int(np.argmax(features[64:69]))
+            ],
             "is_aromatic": features[69],
-            "hydrogen_atoms_count": np.argmax(features[70:75])
+            "hydrogen_atoms_count": np.argmax(features[70:75]),
         }
-        if len(features)>=76:
-            ring_size=list(range(3,8))
-            result["ring"]=features[75],
-            result["ring_size"]= ring_size[np.argmax(features[76:81])]
+        if len(features) >= 76:
+            ring_size = list(range(3, 8))
+            result["ring"] = (features[75],)
+            result["ring_size"] = ring_size[np.argmax(features[76:81])]
         return result
 
     def get_chemical_symbol(self, features, sample=True):
@@ -336,7 +498,9 @@ class CompoundBuilder(object):
         if sample:
             symbol_probabilities = features[0:44] / np.sum(features[0:44])
             # symbol_index = np.random.choice(np.arange(len(symbol_probabilities)), p=symbol_probabilities)
-            symbol_index = random.choices(np.arange(len(symbol_probabilities)), weights=symbol_probabilities)[0]
+            symbol_index = random.choices(
+                np.arange(len(symbol_probabilities)), weights=symbol_probabilities
+            )[0]
         else:
             symbol_index = np.argmax(features[0:44])
 
@@ -375,14 +539,14 @@ class CompoundBuilder(object):
 
         for source_atom, destination_atom in zip(bonds[1], bonds[2]):
             bond = (
-                    source_atom - sum(invalid_atoms[:source_atom]),
-                    destination_atom - sum(invalid_atoms[:destination_atom]),
-                )
+                source_atom - sum(invalid_atoms[:source_atom]),
+                destination_atom - sum(invalid_atoms[:destination_atom]),
+            )
             if (
-                    source_atom < destination_atom
-                    and self.is_atom_valid[source_atom]
-                    and self.is_atom_valid[destination_atom]
-                    and bond not in self.bonds_cache
+                source_atom < destination_atom
+                and self.is_atom_valid[source_atom]
+                and self.is_atom_valid[destination_atom]
+                and bond not in self.bonds_cache
             ):
 
                 self.bonds_cache.add(bond)
@@ -390,6 +554,181 @@ class CompoundBuilder(object):
                 self.bonds_prediction.update(
                     {str(bond): max(self.bonds[:, source_atom, destination_atom])}
                 )
+
+
+class Cycles:
+    """
+    This class contains tools to extracts all the possible cycles within a given molecule
+    Used only once in Tree class
+    """
+
+    def __init__(self, compound, config):
+        self.compound = compound
+        self.bonds = compound.get_bonds()
+
+        self.all_atoms = self.get_all_atoms()
+        self.n_atoms = self.get_atoms_number()
+
+        self.adj_matrix = self.get_adjacency_matrix()
+
+        self.marks = [0] * (self.n_atoms + 1)
+        self.parents = [0] * (self.n_atoms + 1)
+        self.states = [0] * (self.n_atoms + 1)
+
+        self.cycle_number = 0
+        self.cycles = [[] for i in range(1000)]
+        self.subcycles = []
+        self.cycle_sorted_pairs = []
+        self.max_cycle_size = max(config.accepted_cycle_sizes)
+
+        self.compute_all_cycles()
+
+    def get_adjacency_matrix(self):
+        """
+        get the adjacency matrix from list of bonds
+        :return:
+        """
+        adj_matrix = [[] for i in range(self.n_atoms + 1)]
+        for bond in self.bonds:
+            i, j = bond
+            adj_matrix[i].append(j)
+            adj_matrix[j].append(i)
+        return adj_matrix
+
+    def get_all_atoms(self):
+        """
+        get list of all atoms coordonated from bond list
+        :return: list
+        """
+        atoms = [coord for coords in self.bonds for coord in coords]
+        return list(set(atoms))
+
+    def get_atoms_number(self):
+        """
+        get the number of atoms
+        :return: int
+        """
+        return max(self.all_atoms)
+
+    def DFScycles(self, current, parent):
+        """
+        Use DFS and painting algorithm to detect large cycles
+        :return: None
+        """
+        if self.states[current] == 2:
+            return
+
+        if self.states[current] == 1:
+            self.cycle_number += 1
+            backtrack = parent
+
+            self.cycles[self.cycle_number].append(parent)
+
+            self.states[backtrack] = 1
+
+            while backtrack != current:
+                backtrack = self.parents[backtrack]
+                self.cycles[self.cycle_number].append(backtrack)
+            return
+
+        self.parents[current] = parent
+        self.states[current] = 1
+
+        for neighbor in self.adj_matrix[current]:
+            if neighbor != parent:
+                self.DFScycles(neighbor, current)
+
+        self.states[current] = 2
+
+    def compute_large_cycles(self):
+        """
+        Use DFScycle to detect large cycles from bonds using the adjacency matrix
+        :return: None
+        """
+        self.parents = [0] * (self.n_atoms + 1)
+        self.states = [0] * (self.n_atoms + 1)
+        self.cycle_number = 0
+
+        self.DFScycles(2, 0)
+
+    def cycles_within_cycle(
+        self, cycle, current, start, parent, max_depth, path, depth
+    ):
+        """
+        Detect any subcycle in larger cycle with recursion
+        :return: None
+        """
+        if depth > max_depth:
+            return
+
+        elif current == start and depth > 1:
+            self.subcycles.append(path)
+            return
+
+        path.append(current)
+
+        for neighbor in self.adj_matrix[current]:
+            if neighbor in cycle and neighbor != parent and neighbor not in path[1:]:
+                self.cycles_within_cycle(
+                    cycle, neighbor, start, current, max_depth, path.copy(), depth + 1
+                )
+
+    def compute_all_subcycles(self):
+        """
+        Detect any subcycle in all larger cycles
+        :return: None
+        """
+        for cycle in self.cycles:
+            if len(cycle) > 3:
+                for id in cycle:
+                    self.cycles_within_cycle(
+                        cycle, id, id, 0, self.max_cycle_size, [], 0
+                    )
+
+    def get_cycle_bonds(self, cycle):
+        cycle_bonds = []
+        for i, node in enumerate(cycle):
+            bond = [cycle[i], cycle[(i + 1) % len(cycle)]]
+            bond = sorted(bond)
+            cycle_bonds.append(bond)
+        return cycle_bonds
+
+    def clean_cycles(self):
+        self.cycles = list(filter(None, self.cycles))
+
+    def remove_duplicates(self):
+        """
+        Remove all potential cycle duplicates
+        :return: None
+        """
+        cleaned_cycles = []
+        for cycle in self.cycles:
+            cycle_bonds = self.get_cycle_bonds(cycle)
+            sorted_pairs = sorted(cycle_bonds)
+            if sorted_pairs not in self.cycle_sorted_pairs:
+                cleaned_cycles.append(cycle)
+                self.cycle_sorted_pairs.append(sorted_pairs)
+
+        self.cycles = cleaned_cycles
+
+    def get_cycles_of_sizes(self, accepted_sizes=[3, 5, 6]):
+        return [x for x in self.cycle_sorted_pairs if len(x) in accepted_sizes]
+
+    def get_cycles(self):
+        return self.cycles
+
+    def get_cycle_pairs(self):
+        return self.cycle_sorted_pairs
+
+    def get_subcycles(self):
+        return self.subcycles
+
+    def compute_all_cycles(self):
+        self.compute_large_cycles()
+        self.clean_cycles()
+        self.compute_all_subcycles()
+        self.cycles = self.cycles + self.subcycles
+        self.remove_duplicates()
 
 
 class Tree(object):
@@ -411,16 +750,19 @@ class Tree(object):
             :param parent: parent Tree.Node
             """
             self.compound = compound
-            self.unexplore_neighboring_bonds = self.get_compound().compute_neighboring_bonds()
-            self.parent = parent
+            self.unexplored_neighboring_bonds = (
+                self.get_compound().compute_neighboring_bonds()
+            )
             self.children = []
-
+            self.parent = parent
             self.visits = 0
             self.score = 0
             self.selection_score = 0
             self.performance = 0
             self.depth = 0
             self.valid = False
+            self.get_compound().compute_available_cycles()
+            self.cleaned_smiles = self.compute_clean_smiles()
 
         def add_child(self, compound):
             child = Tree.Node(compound, self)
@@ -431,9 +773,9 @@ class Tree(object):
 
         def is_expended(self):
             """
-            Does all children node are created ?
+            Are all children nodes created ?
             """
-            return len(self.unexplore_neighboring_bonds) == 0
+            return len(self.unexplored_neighboring_bonds) == 0
 
         def is_terminal(self):
             if self.is_expended():
@@ -445,10 +787,16 @@ class Tree(object):
             return len(self.children) == 0
 
         def get_compound(self):
-            return self.compound.clone()
+            return self.compound
 
         def get_smiles(self):
             return self.compound.get_smiles()
+
+        def compute_clean_smiles(self):
+            return self.compound.clean_smiles()
+
+        def get_clean_smiles(self):
+            return self.cleaned_smiles
 
     def __init__(self, root: Compound):
         self.root = Tree.Node(root, None)
@@ -543,7 +891,10 @@ class Tree(object):
         best_nodes = {}
 
         for node in all_nodes:
-            if node.valid and (node.depth not in best_nodes or node.score < best_nodes[node.depth].score):
+            if node.valid and (
+                node.depth not in best_nodes
+                or node.score < best_nodes[node.depth].score
+            ):
                 best_nodes[node.depth] = node
 
         return best_nodes
@@ -582,3 +933,47 @@ class Tree(object):
         :return: Tree.Node
         """
         return self.id_nodes.get(compound.hash_id, None)
+
+    def tree_to_dot(self, index=0, clean=True):
+        """
+        Convert our tree to dot format
+        :param node: ignore. used in recursion.
+        :param best: ignore. used in recursion.
+        :return: None
+        """
+        all_nodes = self.flatten()
+        unique_edge_list = []
+
+        dot_graph = "digraph G { \n overlap = scale; \n"
+
+        for node in all_nodes:
+            for child in node.children:
+
+                performance_indice = int(
+                    child.performance / (child.visits + child.prior_occurence)
+                )
+                label = " [label= " + str(performance_indice) + "];"
+
+                if node == self.root:
+                    edge = '"root" -> "' + child.get_clean_smiles() + '"'
+                else:
+                    edge = (
+                        '"'
+                        + node.get_clean_smiles()
+                        + '" -> "'
+                        + child.get_clean_smiles()
+                        + '"'
+                    )
+
+                if clean:
+                    if edge not in unique_edge_list:
+                        unique_edge_list.append(edge)
+                        dot_graph += edge + "\n"
+                else:
+                    dot_graph += edge + label + "\n"
+
+        dot_graph += "}"
+
+        file = open("test/dot_graph_" + str(index) + ".gv", "wt")
+        file.write(dot_graph)
+        file.close()

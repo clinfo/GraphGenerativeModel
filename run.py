@@ -14,7 +14,7 @@ from lib.models import MonteCarloTreeSearch
 RDLogger.logger().setLevel(RDLogger.CRITICAL)
 
 parser = argparse.ArgumentParser()
-parser.add_argument('config', type=str)
+parser.add_argument("config", type=str)
 args = parser.parse_args()
 
 config = Config.load(args.config)
