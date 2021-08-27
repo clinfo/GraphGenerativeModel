@@ -15,7 +15,7 @@ class RandomAgent:
         """
         self.action_space = spaces.Discrete(len(compound.get_initial_bonds()))
 
-    def act(self, compound: Compound, reward: float):
+    def act(self, compound: Compound, reward: float, score: float):
         """
         Randomly samples an action from action space
         :param compound: Compound used at previous iteration

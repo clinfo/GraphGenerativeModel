@@ -92,8 +92,10 @@ def run(config, seed=None):
 
         output = agent.get_output(compound, reward)
         # print(json.dumps(output, indent=4))
-        eval.compute_metric(agent)
-    eval.compute_overall_metric()
+        if config.agent == "MonteCarloTreeSearch":
+            eval.compute_metric(agent)
+    if config.agent == "MonteCarloTreeSearch":
+        eval.compute_overall_metric()
     return eval
 
 
@@ -118,15 +120,16 @@ def main():
             evals = []
             for eval in executor.map(run_config, seeds):
                 evals += [eval]
-
-        eval_agg = EvaluationAggregate(evals)
-        eval_agg.draw_best_mol_per_lvl()
-        eval_agg.compact_result()
-        print(eval_agg.overall_result)
+        if config.agent == "MonteCarloTreeSearch":
+            eval_agg = EvaluationAggregate(evals)
+            eval_agg.draw_best_mol_per_lvl()
+            eval_agg.compact_result()
+            print(eval_agg.overall_result)
 
     else:
         eval = run(config)
-        eval.save()
+        if config.agent == "MonteCarloTreeSearch":
+            eval.save()
 
 
 if __name__ == "__main__":
