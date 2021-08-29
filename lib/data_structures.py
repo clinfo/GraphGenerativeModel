@@ -954,9 +954,7 @@ class Tree(object):
         for node in all_nodes:
             for child in node.children:
 
-                performance_indice = int(
-                    child.performance / (child.visits)
-                )
+                performance_indice = int(child.performance / (child.visits))
                 label = " [label= " + str(performance_indice) + "];"
 
                 if node == self.root:

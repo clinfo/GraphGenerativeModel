@@ -16,7 +16,6 @@ from rdkit.Chem.Descriptors import ExactMolWt, MolWt
 from copy import deepcopy
 
 
-
 class MonteCarloTreeSearch:
 
     """
@@ -47,7 +46,7 @@ class MonteCarloTreeSearch:
         tradeoff_param: float = 0,
         force_begin_ring: bool = False,
         save_to_dot: bool = False,
-        max_mass: int=200
+        max_mass: int = 200,
     ):
         """
         :param data_provider: MoleculeLoader
@@ -135,7 +134,6 @@ class MonteCarloTreeSearch:
         if self.save_to_dot:
             self.states_tree.tree_to_dot(index=index)
         return self.prepare_output(self.states_tree)
-
 
     def select_breath_to_depth(self, tree: Tree):
         """
@@ -242,9 +240,9 @@ class MonteCarloTreeSearch:
             Strategy to select the node used by unitMCTS (https://arxiv.org/pdf/2010.16399.pdf)
             edit: change for argmin instead of argmax and ponderated by node probability
             """
-            return node.performance / (
-                node.visits
-            ) + self.tradeoff_param * np.sqrt(node.visits / np.log(node.parent.visits))
+            return node.performance / (node.visits) + self.tradeoff_param * np.sqrt(
+                node.visits / np.log(node.parent.visits)
+            )
 
         performance = [ucb(child) for child in node.children]
         id_chosen_node = np.argmin(performance)
@@ -439,9 +437,7 @@ class MonteCarloTreeSearch:
         compound = node.get_compound().clone()
         while compound.get_mass() < self.max_mass:
             if len(compound.neighboring_bonds) > 0:
-                compound = self.add_bond(
-                    node, bond_mode=bond_mode, is_rollout=True
-                )
+                compound = self.add_bond(node, bond_mode=bond_mode, is_rollout=True)
             else:
                 break
         orphan = Tree.Node(compound, self)
