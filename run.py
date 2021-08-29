@@ -25,12 +25,13 @@ reward_calculator = CalculatorFactory.create(config.reward_calculator)
 filters = [FilterFactory.create(filter_) for filter_ in config.filters]
 
 model = MonteCarloTreeSearch(
-    data_provider=molecule_loader,
-    calculator=reward_calculator,
     filters=filters,
     minimum_depth=config.minimum_output_depth,
     output_type=config.output_type,
+    select_method=config.select_method,
     breath_to_depth_ratio=config.breath_to_depth_ratio,
+    tradeoff_param=config.tradeoff_param,
+    force_begin_ring=config.force_begin_ring,
 )
 
 sketcher = Sketcher()

@@ -955,7 +955,7 @@ class Tree(object):
             for child in node.children:
 
                 performance_indice = int(
-                    child.performance / (child.visits + child.prior_occurence)
+                    child.performance / (child.visits)
                 )
                 label = " [label= " + str(performance_indice) + "];"
 

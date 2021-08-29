@@ -278,7 +278,6 @@ class MonteCarloTreeSearch:
                 self.all_nodes[id].prior_occurence += 1
 
         if child_dict == {}:
-            print("All paths already exist in the graph")
             node.penalize_node()
             return None
 

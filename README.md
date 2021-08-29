@@ -68,6 +68,9 @@ The options are (details for each option can be found below):
 - **filters**: If any of these filters are met, the cost is set to infinity. Multiple options can be specified. Options: non_zero_reward, positive_reward, molecular_weight (default: ["positive_reward","molecular_weight"])
 - **logging**: Logging level. A smaller number means more logs (use increments of 10, between 10 and 50) (default: 50)
 - **seed**: seed to fix the result of the training (default: None)
+- **save_to_dot**: Boolean to save the tree states to .dot format
+
+- agent
 
 ## Usage
 
@@ -174,7 +177,6 @@ Everything else, not energy calculation related.
 
 Modifications to the formulas can be easily added (`lib/calculators.py`)
 
-
 ### filters
 
 More than 1 filter can be specified at the same time. If the filter conditions are not met, the compound will not
@@ -276,6 +278,27 @@ python -m scripts.draw_3d {input_file} {output_directory}
 where:
  - {input_file} contains SMILES (one per line)
  - {output_directory} is the folder where the generated images are saved to
+
+ ## Export .dot format
+
+The grap visualization repose on the graphviz library installable on linux with the following command:
+
+``` bash
+sudo apt install graphviz
+```
+
+If save_to_dot was set to true, you can export this file to an image type format. To export to a png file, use the following command:
+
+``` bash
+dot -Tpng dot_graph_{number}.gv -o png_graph.png
+```
+
+We however recommend the use of svg as it supports larger graphs. It can be exptracted with the following command:
+
+``` bash
+dot -Tsvg dot_graph_{number}{}.gv -o svg_graph.svg
+```
+
 
 ## Issues:
 

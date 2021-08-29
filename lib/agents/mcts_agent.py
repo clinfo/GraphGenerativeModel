@@ -445,7 +445,7 @@ class MonteCarloTreeSearchAgent:
 
         return solutions
 
-    def get_output(self, compound: Compound, reward: float):
+    def get_output(self, compound: Compound, reward: float, save_to_dot=False, index=0):
         """
         Returns output based on the current state of the Tree.
         For details, see README.md (around the description for output_type).
@@ -454,4 +454,6 @@ class MonteCarloTreeSearchAgent:
         :param reward: float, not actually used but necessary to have same format as other agents.
         :return: list(dict)
         """
+        if save_to_dot:
+            self.states_tree.tree_to_dot(index=index)
         return self.prepare_output(self.states_tree)
