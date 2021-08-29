@@ -201,14 +201,12 @@ class MonteCarloTreeSearchAgent:
             Strategy to select the node used by unitMCTS (https://arxiv.org/pdf/2010.16399.pdf)
             :return: float
             """
-            # return node.performance/node.visits + self.tradeoff_param * np.sqrt(np.log(node.parent.visits) / node.visits)
             return node.performance / node.visits - self.tradeoff_param * np.sqrt(
                 np.log(node.parent.visits) / node.visits
             )
 
         performance = [ucb(child) for child in node.children]
         id_chosen_node = np.argmin(performance)
-        # id_chosen_node = np.argmax(performance)
         return node.children[id_chosen_node]
 
     def select_unvisited_node(self):
