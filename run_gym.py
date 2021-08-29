@@ -91,7 +91,6 @@ def run(config, seed=None):
                 break
 
         output = agent.get_output(compound, reward)
-        # print(json.dumps(output, indent=4))
         if config.agent == "MonteCarloTreeSearch":
             eval.compute_metric(agent)
     if config.agent == "MonteCarloTreeSearch":
