@@ -8,7 +8,7 @@ from rdkit.Chem.rdchem import BondType
 
 from lib.calculators import AbstractCalculator
 from lib.data_providers import MoleculeLoader
-from lib.data_structures import Tree, Compound
+from lib.data_structures import Tree, Compound, Cycles
 from lib.filters import AbstractFilter
 from functools import partial
 
@@ -37,16 +37,9 @@ class MonteCarloTreeSearch:
     def __init__(
         self,
         data_provider: MoleculeLoader,
-        minimum_depth,
-        output_type,
         calculator: AbstractCalculator,
         filters: List[AbstractFilter],
-        select_method: str,
-        breath_to_depth_ratio=0,
-        tradeoff_param: float = 0,
-        force_begin_ring: bool = False,
-        save_to_dot: bool = False,
-        max_mass: int = 200,
+        config,
     ):
         """
         :param data_provider: MoleculeLoader
@@ -56,18 +49,20 @@ class MonteCarloTreeSearch:
         :param filters: from the input parameters (see README.md for details)
         :param breath_to_depth_ratio: from the input parameters (see README.md for details)
         """
+
         self.data_provider = data_provider
-        self.minimum_depth = minimum_depth
-        self.output_type = output_type
-        self.breath_to_depth_ratio = breath_to_depth_ratio
         self.calculator = calculator
-        self.save_to_dot = save_to_dot
-        self.force_begin_ring = force_begin_ring
-        self.tradeoff_param = tradeoff_param
         self.filters = filters
-        self.max_mass = max_mass
-        self.all_nodes = {}
-        self.c = 0.8  # Explorative hyperparameter
+
+        self.minimum_depth = config.minimum_output_depth
+        self.output_type = config.output_type
+        self.breath_to_depth_ratio = config.breath_to_depth_ratio
+        self.save_to_dot = config.save_to_dot
+        self.force_begin_ring = config.force_begin_ring
+        self.tradeoff_param = config.tradeoff_param
+        self.max_mass = config.max_mass
+        self.config = config
+
         self.select_dict = {
             "breath_to_depth": "select_breath_to_depth",
             "MCTS_classic": "select_MCTS_classic",
@@ -81,13 +76,13 @@ class MonteCarloTreeSearch:
             "MCTS_aromatic": "select_bond_MCTS_aromatic",
         }
         assert (
-            select_method in self.select_dict
+            config.select_method in self.select_dict
         ), f"select_method must be in {list(self.select_dict.keys())}"
-        self.tree_policy = getattr(self, self.select_dict[select_method])
-        self.select_bond = getattr(self, self.select_bond_dict[select_method])
-        if select_method == "random":
+        self.tree_policy = getattr(self, self.select_dict[config.select_method])
+        self.select_bond = getattr(self, self.select_bond_dict[config.select_method])
+        if config.select_method == "random":
             self.select_bond = partial(self.select_bond, proba_type="random_on_pred")
-        self.select_method = select_method
+        self.select_method = config.select_method
 
     def start(self, molecules_to_process=10, iterations_per_molecule=100):
         """
@@ -100,6 +95,9 @@ class MonteCarloTreeSearch:
         for i, compound in enumerate(
             self.data_provider.fetch(molecules_to_process=molecules_to_process)
         ):
+            compound.set_cycles(
+            Cycles(compound, self.config).get_cycles_of_sizes(self.config.accepted_cycle_sizes)
+            )
             yield self.apply(compound, iterations=iterations_per_molecule, index=i)
 
     def apply(self, compound: Compound, iterations: int, index: int, save_to_dot=False):
@@ -240,15 +238,19 @@ class MonteCarloTreeSearch:
             Strategy to select the node used by unitMCTS (https://arxiv.org/pdf/2010.16399.pdf)
             edit: change for argmin instead of argmax and ponderated by node probability
             """
+            """
             return node.performance / (node.visits) + self.tradeoff_param * np.sqrt(
                 node.visits / np.log(node.parent.visits)
+            """
+            return node.performance / node.visits - self.tradeoff_param * np.sqrt(
+                np.log(node.parent.visits) / node.visits
             )
 
         performance = [ucb(child) for child in node.children]
         id_chosen_node = np.argmin(performance)
         return node.children[id_chosen_node]
 
-    def select_unvisited_node(self, tree: Tree):
+    def select_unvisited_node(self):
         """
         Select a pseudo random node that can be extended form all the node in the
         tree.
@@ -330,12 +332,13 @@ class MonteCarloTreeSearch:
         Add a new available bond to a given compound.
         :return Compound: Newly created Compound.
         """
-        # source_atom, destination_atom = node.select_unvisited_bond()
-        source_atom, destination_atom = self.select_bond(node)
-
         new_compound = node.get_compound().clone()
-        new_compound.remove_bond((source_atom, destination_atom))
-        new_compound.flush_bonds()
+
+        if is_rollout:
+            id_bond = np.random.choice(range(len(new_compound.neighboring_bonds)))
+            source_atom, destination_atom = new_compound.neighboring_bonds[id_bond]
+        else:
+            source_atom, destination_atom = self.select_bond(node)
 
         molecule = new_compound.get_molecule()
 
@@ -352,20 +355,20 @@ class MonteCarloTreeSearch:
         if len(node.get_compound().get_aromatic_queue()) > 0 and not is_rollout:
             # set conjugate and handle starting condition for queue duplicates, one start by single the other by double
             if (
-                node.get_last_bondtype() == Chem.rdchem.BondType.SINGLE
+                node.get_compound().get_last_bondtype() == Chem.rdchem.BondType.SINGLE
             ):  # or compound.aromatic_bonds_counter%2 == 1:
                 bond_type = Chem.rdchem.BondType.DOUBLE
             else:
                 bond_type = Chem.rdchem.BondType.SINGLE
 
-            if bond_type not in node.available_bonds:
+            if bond_type not in available_bonds:
                 bond_type = Chem.rdchem.BondType.SINGLE
 
             node.get_compound().aromatic_queue.pop(0)
 
         elif bond_mode == "best":
             per_bond_rewards = {}
-            for bond_type in self.AVAILABLE_BONDS:
+            for bond_type in available_bonds:
                 target_bond.SetBondType(bond_type)
                 per_bond_rewards[bond_type] = self.calculate_reward(new_compound)
 
@@ -384,6 +387,10 @@ class MonteCarloTreeSearch:
             new_compound.add_bond_history(
                 [source_atom, destination_atom], target_bond.GetBondType()
             )
+
+        new_compound.remove_bond((source_atom, destination_atom))
+        new_compound.flush_bonds()
+
         return new_compound
 
     def expand(self, node: Tree.Node, bond_mode="best"):
@@ -399,50 +406,15 @@ class MonteCarloTreeSearch:
             logging.debug("already fully expended")
             return None
 
-        child_dict = {}
+        child = None
 
-        while node.is_expended() == False:
+        if node.is_expended() == False and not node.is_terminal():
             new_compound = self.add_bond(node, bond_mode=bond_mode)
-            id = new_compound.compute_hash()
-            if id not in self.all_nodes:
+            new_compound.compute_hash()
+            duplicate = self.states_tree.find_duplicate(new_compound)
+            if duplicate is None:
                 child = node.add_child(new_compound)
-                self.all_nodes[id] = child
-                child_dict[id] = child
-            else:
-                self.all_nodes[id].prior_occurence += 1
-
-        if child_dict == {}:
-            node.penalize_node()
-            return None
-
-        # get first child
-        children_view = child_dict.values()
-        children_iterator = iter(children_view)
-        child = next(children_iterator)
         return child
-
-    def rollout_step(self, node, bond_mode="best"):
-        """
-        Simple rollout step generating a new compound from available bonds
-        :param node: Tree.Node
-        :return: Tree.Node
-        """
-        """
-        new_compound = self.add_bond(node, bond_mode=bond_mode, is_rollout=True)
-        orphan = Tree.Node(new_compound, self)
-        orphan.depth = self.depth + 1
-        del node
-        return orphan
-        """
-        compound = node.get_compound().clone()
-        while compound.get_mass() < self.max_mass:
-            if len(compound.neighboring_bonds) > 0:
-                compound = self.add_bond(node, bond_mode=bond_mode, is_rollout=True)
-            else:
-                break
-        orphan = Tree.Node(compound, self)
-        orphan.depth = self.depth + 1
-        return orphan
 
     def simulate(self, node: Tree.Node, rollout=True, mode="best"):
         """
@@ -452,27 +424,27 @@ class MonteCarloTreeSearch:
         :return: double
         """
         logging.debug("Simulating...")
+
         if rollout == True:
-            start_node = node
-
-            while node.get_compound().get_mass() < 200 and node.is_expended() == False:
-                node = self.rollout_step(node, bond_mode=mode)
-
-            start_node.score = self.calculate_reward(node.compound)
-            node.score = start_node.score
+            compound = node.get_compound().clone()
+            while compound.get_mass() < self.max_mass:
+                if len(compound.neighboring_bonds) > 0:
+                    tmp_node = Tree.Node(compound, self)
+                    compound = self.add_bond(
+                        tmp_node, "best", is_rollout=True
+                    )
+                else:
+                    break
+            node.score = self.calculate_reward(compound)
         else:
             node.score = self.calculate_reward(node.compound)
 
-            molecule = node.compound.clean(preserve=True)
-            node.valid = (
-                node.score < np.Infinity
-                and node.depth >= self.minimum_depth
-                and all(_filter.apply(molecule, node.score) for _filter in self.filters)
-            )
-
-        # encourage aromaticity
-        if node.get_compound().is_aromatic():
-            node.score /= 2
+        molecule = node.compound.clean(preserve=True)
+        node.valid = (
+            node.score < Tree.INFINITY
+            and node.depth >= self.minimum_depth
+            and all(_filter.apply(molecule, node.score) for _filter in self.filters)
+        )
 
         return node.score
 
@@ -487,7 +459,7 @@ class MonteCarloTreeSearch:
         node.visits += 1
         backproped_score = node.score
 
-        if node.performance > np.Infinity:
+        if node.performance > Tree.INFINITY:
             return
 
         while node.depth > 0:
@@ -527,13 +499,13 @@ class MonteCarloTreeSearch:
             logging.debug(
                 "[INVALID REWARD]: {} - {}".format(compound.get_smiles(), str(e))
             )
-            return np.Infinity
+            return Tree.INFINITY
 
         except (ValueError, RuntimeError, AttributeError) as e:
             logging.debug(
                 "[INVALID REWARD]: {} - {}".format(compound.get_smiles(), str(e))
             )
-            return np.Infinity
+            return Tree.INFINITY
 
     def prepare_output(self, tree: Tree):
         """
@@ -582,7 +554,7 @@ class MonteCarloTreeSearch:
         for node in nodes:
             solutions.append(
                 {
-                    "smiles": Chem.MolToSmiles(node.get_compound().clean()),
+                    "smiles": node.get_compound().clean_smiles(),
                     "depth": node.depth,
                     "score": node.score,
                 }

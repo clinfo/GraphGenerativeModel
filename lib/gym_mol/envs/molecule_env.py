@@ -158,9 +158,9 @@ class MoleculeEnv(gym.Env):
         while compound.get_mass() < self.max_mass:
             if len(compound.neighboring_bonds) > 0:
                 id_bond = np.random.choice(range(len(compound.neighboring_bonds)))
-                source_atom, destionation_atom = compound.neighboring_bonds[id_bond]
+                source_atom, destination_atom = compound.neighboring_bonds[id_bond]
                 compound = self.add_bond(
-                    compound, source_atom, destionation_atom, "best", is_rollout=True
+                    compound, source_atom, destination_atom, "best", is_rollout=True
                 )
             else:
                 break

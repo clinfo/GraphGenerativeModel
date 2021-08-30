@@ -381,7 +381,6 @@ class MonteCarloTreeSearchAgent:
         node.visits += 1
 
         if node.performance > Tree.INFINITY:
-            # if node.performance == 0:
             return
 
         while node.depth > 0:
