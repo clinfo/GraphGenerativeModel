@@ -8,10 +8,12 @@ from rdkit.Chem.rdchem import BondType
 
 from lib.calculators import AbstractCalculator
 from lib.data_providers import MoleculeLoader
-from lib.data_structures import Tree, Compound
+from lib.data_structures import Tree, Compound, Cycles
 from lib.filters import AbstractFilter
+from functools import partial
 
 from rdkit.Chem.Descriptors import ExactMolWt, MolWt
+from copy import deepcopy
 
 
 class MonteCarloTreeSearch:
@@ -35,11 +37,9 @@ class MonteCarloTreeSearch:
     def __init__(
         self,
         data_provider: MoleculeLoader,
-        minimum_depth,
-        output_type,
         calculator: AbstractCalculator,
         filters: List[AbstractFilter],
-        breath_to_depth_ratio=0,
+        config,
     ):
         """
         :param data_provider: MoleculeLoader
@@ -49,18 +49,40 @@ class MonteCarloTreeSearch:
         :param filters: from the input parameters (see README.md for details)
         :param breath_to_depth_ratio: from the input parameters (see README.md for details)
         """
+
         self.data_provider = data_provider
-        self.minimum_depth = minimum_depth
-        self.output_type = output_type
-        self.breath_to_depth_ratio = breath_to_depth_ratio
         self.calculator = calculator
         self.filters = filters
-        self.all_nodes = {}
-        self.c = 0.8  # Explorative hyperparameter
+
+        self.minimum_depth = config.minimum_output_depth
+        self.output_type = config.output_type
+        self.breath_to_depth_ratio = config.breath_to_depth_ratio
+        self.save_to_dot = config.save_to_dot
+        self.force_begin_ring = config.force_begin_ring
+        self.tradeoff_param = config.tradeoff_param
+        self.max_mass = config.max_mass
+        self.config = config
+
         self.select_dict = {
             "breath_to_depth": "select_breath_to_depth",
             "MCTS_classic": "select_MCTS_classic",
+            "MCTS_aromatic": "select_MCTS_aromatic",
+            "random": "select_MCTS_classic",
         }
+        self.select_bond_dict = {
+            "breath_to_depth": "select_bond_breath_to_depth",
+            "MCTS_classic": "select_bond_MCTS_classic",
+            "random": "select_bond_MCTS_classic",
+            "MCTS_aromatic": "select_bond_MCTS_aromatic",
+        }
+        assert (
+            config.select_method in self.select_dict
+        ), f"select_method must be in {list(self.select_dict.keys())}"
+        self.tree_policy = getattr(self, self.select_dict[config.select_method])
+        self.select_bond = getattr(self, self.select_bond_dict[config.select_method])
+        if config.select_method == "random":
+            self.select_bond = partial(self.select_bond, proba_type="random_on_pred")
+        self.select_method = config.select_method
 
     def start(self, molecules_to_process=10, iterations_per_molecule=100):
         """
@@ -73,21 +95,24 @@ class MonteCarloTreeSearch:
         for i, compound in enumerate(
             self.data_provider.fetch(molecules_to_process=molecules_to_process)
         ):
+            compound.set_cycles(
+            Cycles(compound, self.config).get_cycles_of_sizes(self.config.accepted_cycle_sizes)
+            )
             yield self.apply(compound, iterations=iterations_per_molecule, index=i)
 
-    def apply(self, compound: Compound, iterations: int, index: int):
+    def apply(self, compound: Compound, iterations: int, index: int, save_to_dot=False):
         """
         Optimize a molecule (that is, run the Monte Carlo Tree Search)
         :return: list(dict)
         """
-        states_tree = Tree(compound)
+        self.states_tree = Tree(compound)
         logging.info("Processing now: {}".format(compound.get_smiles()))
         logging.info("Bonds Count: {}".format(compound.bonds_count()))
         logging.info("Atoms Count: {}".format(compound.get_molecule().GetNumAtoms()))
 
         for _ in range(iterations):
             logging.debug("Iteration {}/{}".format(_ + 1, iterations))
-            selection = self.select(states_tree)
+            selection = self.tree_policy()
             if selection is None:
                 break
 
@@ -102,19 +127,11 @@ class MonteCarloTreeSearch:
 
             self.update(new_node)
             print("step = ", _)
-        states_tree.print_tree()
-        states_tree.tree_to_dot(index=index)
-        return self.prepare_output(states_tree)
 
-    def select(self, tree: Tree, strat="MCTS_classic"):
-        """
-        The selection phase. Choose bteween the classic MCTS details or originally implemented by the
-        breath_to_depth_ratio
-        :param tree: Tree
-        :return: Tree.Node
-        """
-        if strat in self.select_dict:
-            return getattr(self, self.select_dict[strat])(tree)
+        self.states_tree.print_tree()
+        if self.save_to_dot:
+            self.states_tree.tree_to_dot(index=index)
+        return self.prepare_output(self.states_tree)
 
     def select_breath_to_depth(self, tree: Tree):
         """
@@ -150,23 +167,65 @@ class MonteCarloTreeSearch:
 
         return np.random.choice(candidates, 1, p=scores)[0]
 
-    def select_MCTS_classic(self, tree: Tree):
+    def select_bond_MCTS_classic(self, node: Tree.Node, proba_type="random"):
         """
-        Walk through the tree and select one of the node to expand.
-        If the node selected can't be expended, another node is selected randomly
-        from all the node that can be expanded in the tree.
-        :return Tree.Node: the node selected to expand
+        Select randomly a bond to add to the molecule from the neighboring bond.
+        Remove the selected bond from the list of unvisited bond.
+        :param node: Tree.Node:Node to expand
+        :param proba_type: str: How to select the expansion
+        :return: Tuple(int, int): bond selected
         """
-        node = tree.root
+        possible_bonds = node.unexplored_neighboring_bonds
+        if proba_type == "random":
+            p = None
+        elif proba_type == "random_on_pred":
+            p = node.compound.get_pred_proba_next_bond(
+                node.unexplored_neighboring_bonds
+            )
+        id_bond = np.random.choice(range(len(possible_bonds)), p=p)
+        selected_bond = possible_bonds.pop(id_bond)
+        node.unexplored_neighboring_bonds = possible_bonds
+        return selected_bond
 
-        while len(node.children) != 0:
-            node = self.select_next_node(node)
-        if node.is_terminal():
-            # Increase score to avoid looping on this node
-            node.score *= 1.3
-            self.update(node)
-            return self.select_unvisited_node(tree)
-        return node
+    def select_bond_MCTS_aromatic(self, node: Tree.Node, proba_type="random"):
+        """
+        Select a bond that favors the formation of an aromatic ring.
+        Switch that bond in the first position of the aromatic queue to be deleted by the child.
+        :param node: Tree.Node:Node to expand
+        :param proba_type: str: How to select the expansion
+        :return: Tuple(int, int): bond selected
+        """
+        possible_bonds = node.unexplored_neighboring_bonds
+        aromatic_queue = deepcopy(node.get_compound().fill_aromatic_queue())
+        sorted_bonds = [sorted(bond) for bond in possible_bonds]
+        id_bond = -1
+        if len(aromatic_queue) > 0:
+            for i, bond in enumerate(aromatic_queue):
+                if bond in sorted_bonds:
+                    id_bond = sorted_bonds.index(bond)
+                    # put chosen bond in first position of the aromatic queue
+                    chosen_bond = node.get_compound().aromatic_queue.pop(i)
+                    # We need the lenght of the aromatic queue to be superior to zero in add_bond
+                    node.get_compound().aromatic_queue.insert(0, chosen_bond)
+                    break
+        else:
+            if proba_type == "random":
+                p = None
+            elif proba_type == "random_on_pred":
+                p = node.compound.get_pred_proba_next_bond(
+                    node.unexplored_neighboring_bonds
+                )
+
+            id_bond = np.random.choice(range(len(possible_bonds)), p=p)
+
+        # case to handle if cycle bond was removed by remove_full_atom_other_bond
+        if id_bond == -1:
+            id_bond = np.random.choice(range(len(possible_bonds)), p=None)
+
+        selected_bond = possible_bonds.pop(id_bond)
+        node.unexplored_neighboring_bonds = possible_bonds
+
+        return selected_bond
 
     def select_next_node(self, node: Tree.Node):
         """
@@ -179,42 +238,107 @@ class MonteCarloTreeSearch:
             Strategy to select the node used by unitMCTS (https://arxiv.org/pdf/2010.16399.pdf)
             edit: change for argmin instead of argmax and ponderated by node probability
             """
-            return node.performance / (
-                node.visits + node.prior_occurence
-            ) + self.c * np.sqrt(node.visits / np.log(node.parent.visits))
+            """
+            return node.performance / (node.visits) + self.tradeoff_param * np.sqrt(
+                node.visits / np.log(node.parent.visits)
+            """
+            return node.performance / node.visits - self.tradeoff_param * np.sqrt(
+                np.log(node.parent.visits) / node.visits
+            )
 
         performance = [ucb(child) for child in node.children]
         id_chosen_node = np.argmin(performance)
         return node.children[id_chosen_node]
 
-    def select_unvisited_node(self, tree: Tree):
+    def select_unvisited_node(self):
         """
         Select a pseudo random node that can be extended form all the node in the
         tree.
         The deeper the node the higher is chance to be selected.
-        :return Tree.Node: Node selected to be expanded.
+        :return: Tree.Node: Node selected to be expanded.
         """
         # Retrieve unvisited node
-        all_node = tree.flatten()
-        unvisited_node = [n for n in all_node if not n.is_expended()]
+        all_node = self.states_tree.flatten()
+        unexpended_node = [n for n in all_node if not n.is_expended()]
+        if len(unexpended_node) == 0:
+            logging.info("All possible node have been explored")
+            return None
         # Select one
-        # TO CHANGE
-        performances = [n.depth / (n.performance + 0.1) for n in unvisited_node]
+        performances = [n.depth / (n.performance / n.visits) for n in unexpended_node]
         performances = performances / np.sum(performances)
-        id_node = np.random.choice(range(len(unvisited_node)), p=performances)
-        return unvisited_node[id_node]
+        id_node = np.random.choice(range(len(unexpended_node)), p=performances)
+        return unexpended_node[id_node]
 
-    def add_bond(self, node: Tree.Node, bond_mode="best"):
+    def select_MCTS_classic(self):
+        """
+        Walk through the tree and select one of the node to expand.
+        If the node selected can't be expended, another node is selected randomly
+        from all the node that can be expanded in the tree.
+        :return: Tree.Node: the node selected to expand
+        """
+        node = self.states_tree.root
+        while node.is_expended() and not node.is_terminal():
+            node = self.select_next_node(node)
+        if node.is_terminal():
+            # Decrease score to avoid looping on this node
+            # node.score *= 0.7
+            logging.debug("Reached terminal node")
+            node.selection_score *= 1.1
+            self.update(node)
+            return self.select_unvisited_node()
+        return node
+
+    def get_node_aromatic_process(self):
+        """
+        Return the node use by the aromatic mode if the creation of a cycle is ongoing.
+        """
+        return [
+            n for n in self.states_tree.flatten() if len(n.compound.aromatic_queue) > 0
+        ]
+
+    def select_MCTS_aromatic(self):
+        """
+        Select the next node, if there is an aromatic process in going then
+        the next node will be the one enabling this process. Otherwise the selection
+        is similar to MCTS_classic
+        :return: Tree.Node: the node selected to expand
+        """
+        in_progress_aromatic_node = self.get_node_aromatic_process()
+        if len(in_progress_aromatic_node) > 0:
+            node = in_progress_aromatic_node[0]
+            if node.is_terminal():
+                logging.debug("Reached terminal node")
+                node.selection_score *= 1.1
+                self.update(node)
+                return self.select_unvisited_node()
+            else:
+                return node
+        else:
+            if self.force_begin_ring:
+                # All Cycle have been created and the suppression is done only one time
+                if (
+                    len(self.states_tree.root.compound.available_cycles) == 0
+                    and len(self.states_tree.root.unexplored_neighboring_bonds) != 0
+                ):
+                    # Delete all possible branches except the one after the rings
+                    max_depth = max(self.states_tree.group())
+                    for node in self.states_tree.flatten():
+                        if node.depth < max_depth:
+                            node.unexplored_neighboring_bonds = []
+            return self.select_MCTS_classic()
+
+    def add_bond(self, node: Tree.Node, bond_mode="best", is_rollout=False):
         """
         Add a new available bond to a given compound.
         :return Compound: Newly created Compound.
         """
-        # source_atom, destination_atom = node.select_unvisited_bond()
-        source_atom, destination_atom = node.select_unvisited_bond_aromatic()
-
         new_compound = node.get_compound().clone()
-        new_compound.remove_bond((source_atom, destination_atom))
-        new_compound.flush_bonds()
+
+        if is_rollout:
+            id_bond = np.random.choice(range(len(new_compound.neighboring_bonds)))
+            source_atom, destination_atom = new_compound.neighboring_bonds[id_bond]
+        else:
+            source_atom, destination_atom = self.select_bond(node)
 
         molecule = new_compound.get_molecule()
 
@@ -223,33 +347,50 @@ class MonteCarloTreeSearch:
         )
         target_bond = molecule.GetBondWithIdx(target_bond_index - 1)
 
+        available_bonds = node.get_compound().filter_bond_type(
+            int(source_atom), int(destination_atom), self.AVAILABLE_BONDS
+        )
+
         # if member of aromatic queue was selected
-        if len(node.get_compound().get_aromatic_queue()) > 0:
-            # set conjugate
-            if node.get_compound().get_last_bondtype() == Chem.rdchem.BondType.SINGLE:
+        if len(node.get_compound().get_aromatic_queue()) > 0 and not is_rollout:
+            # set conjugate and handle starting condition for queue duplicates, one start by single the other by double
+            if (
+                node.get_compound().get_last_bondtype() == Chem.rdchem.BondType.SINGLE
+            ):  # or compound.aromatic_bonds_counter%2 == 1:
                 bond_type = Chem.rdchem.BondType.DOUBLE
             else:
                 bond_type = Chem.rdchem.BondType.SINGLE
+
+            if bond_type not in available_bonds:
+                bond_type = Chem.rdchem.BondType.SINGLE
+
+            node.get_compound().aromatic_queue.pop(0)
+
         elif bond_mode == "best":
             per_bond_rewards = {}
-            for bond_type in self.AVAILABLE_BONDS:
+            for bond_type in available_bonds:
                 target_bond.SetBondType(bond_type)
                 per_bond_rewards[bond_type] = self.calculate_reward(new_compound)
 
             bond_type = min(per_bond_rewards, key=per_bond_rewards.get)
+        elif bond_mode == "random":
+            bond_type = available_bonds[np.random.choice(available_bonds)]
+
         else:
-            bond_type = self.AVAILABLE_BONDS[
-                np.random.randint(len(self.AVAILABLE_BONDS), size=1)[0]
-            ]
+            raise ValueError(f"select_type must be best or random given: {bond_mode}")
 
         target_bond.SetBondType(bond_type)
 
-        new_compound.pass_aromatic_queue(node.get_compound().get_aromatic_queue())
-        node.get_compound().reset_aromatic_queue()
+        new_compound.pass_parent_info(node.get_compound())
 
-        new_compound.add_bond_history(
-            [source_atom, destination_atom], bond_type, node.get_node_history()
-        )
+        if not is_rollout:
+            new_compound.add_bond_history(
+                [source_atom, destination_atom], target_bond.GetBondType()
+            )
+
+        new_compound.remove_bond((source_atom, destination_atom))
+        new_compound.flush_bonds()
+
         return new_compound
 
     def expand(self, node: Tree.Node, bond_mode="best"):
@@ -265,39 +406,15 @@ class MonteCarloTreeSearch:
             logging.debug("already fully expended")
             return None
 
-        child_dict = {}
+        child = None
 
-        while node.is_expended() == False:
+        if node.is_expended() == False and not node.is_terminal():
             new_compound = self.add_bond(node, bond_mode=bond_mode)
-            id = new_compound.compute_hash()
-            if id not in self.all_nodes:
+            new_compound.compute_hash()
+            duplicate = self.states_tree.find_duplicate(new_compound)
+            if duplicate is None:
                 child = node.add_child(new_compound)
-                self.all_nodes[id] = child
-                child_dict[id] = child
-            else:
-                self.all_nodes[id].prior_occurence += 1
-
-        if child_dict == {}:
-            print("All paths already exist in the graph")
-            node.penalize_node()
-            return None
-
-        # get first child
-        children_view = child_dict.values()
-        children_iterator = iter(children_view)
-        child = next(children_iterator)
         return child
-
-    def rollout_step(self, node, bond_mode="best"):
-        """
-        Simple rollout step generating a new compound from available bonds
-        :param node: Tree.Node
-        :return: Tree.Node
-        """
-        new_compound = self.add_bond(node, bond_mode=bond_mode)
-        orphan = node.get_child(new_compound)
-        del node
-        return orphan
 
     def simulate(self, node: Tree.Node, rollout=True, mode="best"):
         """
@@ -307,27 +424,27 @@ class MonteCarloTreeSearch:
         :return: double
         """
         logging.debug("Simulating...")
+
         if rollout == True:
-            start_node = node
-
-            while node.get_compound().get_mass() < 200 and node.is_expended() == False:
-                node = self.rollout_step(node, bond_mode=mode)
-
-            start_node.score = self.calculate_reward(node.compound)
-            node.score = start_node.score
+            compound = node.get_compound().clone()
+            while compound.get_mass() < self.max_mass:
+                if len(compound.neighboring_bonds) > 0:
+                    tmp_node = Tree.Node(compound, self)
+                    compound = self.add_bond(
+                        tmp_node, "best", is_rollout=True
+                    )
+                else:
+                    break
+            node.score = self.calculate_reward(compound)
         else:
             node.score = self.calculate_reward(node.compound)
 
-            molecule = node.compound.clean(preserve=True)
-            node.valid = (
-                node.score < np.Infinity
-                and node.depth >= self.minimum_depth
-                and all(_filter.apply(molecule, node.score) for _filter in self.filters)
-            )
-
-        # encourage aromaticity
-        if node.get_compound().is_aromatic():
-            node.score /= 100
+        molecule = node.compound.clean(preserve=True)
+        node.valid = (
+            node.score < Tree.INFINITY
+            and node.depth >= self.minimum_depth
+            and all(_filter.apply(molecule, node.score) for _filter in self.filters)
+        )
 
         return node.score
 
@@ -342,7 +459,7 @@ class MonteCarloTreeSearch:
         node.visits += 1
         backproped_score = node.score
 
-        if node.performance > np.Infinity:
+        if node.performance > Tree.INFINITY:
             return
 
         while node.depth > 0:
@@ -350,7 +467,7 @@ class MonteCarloTreeSearch:
             node.parent.visits += 1
             node = node.parent
 
-    def calculate_reward(self, compound: Compound):
+    def calculate_reward(self, compound: Compound, rollout=True):
         """
         Calculate the reward of the compound based on the requested force field.
         If the molecule is not valid, the reward will be infinity.
@@ -367,21 +484,28 @@ class MonteCarloTreeSearch:
 
             molecule.UpdatePropertyCache()
             reward = self.calculator.calculate(molecule)
+
+            # encourage aromaticity
+            if rollout == False:
+                if compound.is_aromatic():
+                    reward /= 2
+
             if np.isnan(reward):
                 raise ValueError("NaN reward encountered: {}".format(smiles))
 
-            logging.debug(
-                "{} : {} : {:.6f}".format(
-                    compound.get_smiles(), Chem.MolToSmiles(molecule), reward
-                )
-            )
             return reward
 
         except (ValueError, RuntimeError, AttributeError) as e:
             logging.debug(
                 "[INVALID REWARD]: {} - {}".format(compound.get_smiles(), str(e))
             )
-            return np.Infinity
+            return Tree.INFINITY
+
+        except (ValueError, RuntimeError, AttributeError) as e:
+            logging.debug(
+                "[INVALID REWARD]: {} - {}".format(compound.get_smiles(), str(e))
+            )
+            return Tree.INFINITY
 
     def prepare_output(self, tree: Tree):
         """
@@ -430,7 +554,7 @@ class MonteCarloTreeSearch:
         for node in nodes:
             solutions.append(
                 {
-                    "smiles": Chem.MolToSmiles(node.get_compound().clean()),
+                    "smiles": node.get_compound().clean_smiles(),
                     "depth": node.depth,
                     "score": node.score,
                 }

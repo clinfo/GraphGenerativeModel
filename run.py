@@ -21,26 +21,21 @@ config = Config.load(args.config)
 
 logging.basicConfig(format="%(message)s", level=config.logging)
 molecule_loader = MoleculeLoader(file_path=config.dataset, threshold=config.threshold)
-reward_calculator = CalculatorFactory.create(config.reward_calculator)
+reward_calculator = CalculatorFactory.create(
+    config.reward_calculator, config.reward_weights, config
+)
 filters = [FilterFactory.create(filter_) for filter_ in config.filters]
 
 model = MonteCarloTreeSearch(
     data_provider=molecule_loader,
     calculator=reward_calculator,
     filters=filters,
-    minimum_depth=config.minimum_output_depth,
-    output_type=config.output_type,
-    breath_to_depth_ratio=config.breath_to_depth_ratio,
+    config=config,
 )
 
-sketcher = Sketcher()
-if config.draw is not None:
-    sketcher.set_location(config.draw)
 
 for molecules in model.start(config.generate, config.monte_carlo_iterations):
     if molecules is None:
         continue
 
     print(json.dumps(molecules, indent=4))
-    for molecule in molecules:
-        sketcher.draw(molecule["smiles"])

@@ -26,6 +26,7 @@ class Config(NamedTuple):
     max_mass: int = 100
     accepted_cycle_sizes: List[int] = [5, 6]
     force_begin_ring: bool = False
+    save_to_dot: bool = False
 
     reward_calculator: Optional[str] = CalculatorFactory.COMPOUND_ENERGY_BABEL_MMFF
     reward_weights: Optional[List[float]] = None

@@ -238,7 +238,6 @@ class Compound(object):
         :param bond_type: BondType, selected bond type
         """
         self.last_bondtype = bond_type
-        # print(self.last_bondtype)
         self.bond_history[str(selected_bond)] = bond_type
 
     def pass_parent_info(self, parent_compound):
@@ -284,7 +283,6 @@ class Compound(object):
         """
         self.remove_full_atom_other_bond()
         molecule = self.get_molecule()
-        # print("self.cycle_bonds", self.cycle_bonds)
         candidate_cycles = deepcopy(self.cycle_bonds)
         sorted_bonds = [sorted(bond) for bond in self.get_bonds()]
         current_bonds = molecule.GetBonds()
@@ -363,7 +361,6 @@ class Compound(object):
 
         m = Chem.MolFromSmiles(self.clean_smiles(preserve=True))
         ri = m.GetRingInfo()
-        # print(self.molecule.GetRingInfo().ri.AtomRings())
         if len(ri.AtomRings()) == 0:
             return False
 
@@ -586,7 +583,7 @@ class Cycles:
     def get_adjacency_matrix(self):
         """
         get the adjacency matrix from list of bonds
-        :return:
+        :return: list
         """
         adj_matrix = [[] for i in range(self.n_atoms + 1)]
         for bond in self.bonds:
@@ -686,6 +683,11 @@ class Cycles:
                     )
 
     def get_cycle_bonds(self, cycle):
+        """
+        Get all the bonds from a cycle format
+        ex:[7, 8, 10, 14] to [7, 8], [8, 10], [10, 14]
+        return: List(int , int):
+        """
         cycle_bonds = []
         for i, node in enumerate(cycle):
             bond = [cycle[i], cycle[(i + 1) % len(cycle)]]
@@ -694,6 +696,9 @@ class Cycles:
         return cycle_bonds
 
     def clean_cycles(self):
+        """
+        Remove duplicates in self cycle
+        """
         self.cycles = list(filter(None, self.cycles))
 
     def remove_duplicates(self):
@@ -949,9 +954,7 @@ class Tree(object):
         for node in all_nodes:
             for child in node.children:
 
-                performance_indice = int(
-                    child.performance / (child.visits + child.prior_occurence)
-                )
+                performance_indice = int(child.performance / (child.visits))
                 label = " [label= " + str(performance_indice) + "];"
 
                 if node == self.root:

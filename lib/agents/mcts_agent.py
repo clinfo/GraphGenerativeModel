@@ -208,14 +208,12 @@ class MonteCarloTreeSearchAgent:
             Strategy to select the node used by unitMCTS (https://arxiv.org/pdf/2010.16399.pdf)
             :return: float
             """
-            # return node.performance/node.visits + self.tradeoff_param * np.sqrt(np.log(node.parent.visits) / node.visits)
             return node.performance / node.visits - self.tradeoff_param * np.sqrt(
                 np.log(node.parent.visits) / node.visits
             )
 
         performance = [ucb(child) for child in node.children]
         id_chosen_node = np.argmin(performance)
-        # id_chosen_node = np.argmax(performance)
         return node.children[id_chosen_node]
 
     def select_unvisited_node(self):
@@ -390,7 +388,6 @@ class MonteCarloTreeSearchAgent:
         node.visits += 1
 
         if node.performance > Tree.INFINITY:
-            # if node.performance == 0:
             return
 
         while node.depth > 0:
@@ -452,7 +449,7 @@ class MonteCarloTreeSearchAgent:
 
         return solutions
 
-    def get_output(self, compound: Compound, reward: float):
+    def get_output(self, compound: Compound, reward: float, save_to_dot=False, index=0):
         """
         Returns output based on the current state of the Tree.
         For details, see README.md (around the description for output_type).
@@ -461,4 +458,6 @@ class MonteCarloTreeSearchAgent:
         :param reward: float, not actually used but necessary to have same format as other agents.
         :return: list(dict)
         """
+        if save_to_dot:
+            self.states_tree.tree_to_dot(index=index)
         return self.prepare_output(self.states_tree)

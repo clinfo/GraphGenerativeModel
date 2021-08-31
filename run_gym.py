@@ -91,10 +91,10 @@ def run(config, seed=None):
                 logging.info("End of generation")
                 break
 
-        output = agent.get_output(compound, reward)
-        # print(json.dumps(output, indent=4))
+        output = agent.get_output(compound, reward, config.save_to_dot, i)
         if config.agent == "MonteCarloTreeSearch":
             eval.compute_metric(agent)
+
     if config.agent == "MonteCarloTreeSearch":
         eval.compute_overall_metric()
     return eval
