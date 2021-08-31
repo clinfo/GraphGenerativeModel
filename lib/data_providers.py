@@ -33,11 +33,11 @@ class MoleculeLoader(object):
             builder = CompoundBuilder(
                 bonds=self.dataset["dense_adj"][molecule_index],
                 atoms=self.dataset["feature"][molecule_index],
-                threshold=self.threshold
+                threshold=self.threshold,
             )
 
             builder.initialize_atoms()
             builder.initialize_bonds()
 
             molecule, bonds = builder.parse()
-            yield Compound(molecule, bonds)
+            yield Compound(molecule, bonds, builder.bonds_prediction)

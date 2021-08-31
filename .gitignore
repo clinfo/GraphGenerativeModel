@@ -2,5 +2,10 @@
 *.log
 *.png
 *.pyc
+*.test
+*.pkl
 __pycache__/
 .idea/
+.vscode
+venv/
+test/
