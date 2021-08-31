@@ -1,7 +1,7 @@
 {
     "dataset": "data/gen.multi.test.jbl",
     "experiment_name": "random",
-    "generate": 1,
+    "generate": 50,
     "concurrent_run": 10,
 
 

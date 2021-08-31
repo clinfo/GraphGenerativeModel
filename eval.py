@@ -1,14 +1,16 @@
-from lib.data_structures import Tree
-from typing import List
-from lib.agents.mcts_agent import MonteCarloTreeSearchAgent
-from lib.config import Config
-import logging
-from lib.calculators import AbstractCalculator
-from rdkit import Chem
-import numpy as np
+import os
 import pickle
-from lib.helpers import Sketcher
+import logging
+import numpy as np
 import pandas as pd
+from rdkit import Chem
+from typing import List
+
+from lib.config import Config
+from lib.helpers import Sketcher
+from lib.data_structures import Tree
+from lib.agents.mcts_agent import MonteCarloTreeSearchAgent
+from lib.calculators import AbstractCalculator
 
 
 class Evaluation(object):
@@ -188,6 +190,7 @@ class EvaluationAggregate(object):
         """
         self.list_eval = list_eval
         self.config = list_eval[0].config
+        self.sketcher = Sketcher(f"{self.config.experiment_name}_{self.config.seed}")
 
     def compact_result(self):
         """
@@ -198,6 +201,9 @@ class EvaluationAggregate(object):
             self.overall_result[mol_per_level] = self.compact_overall_result(
                 mol_per_level
             )
+        path_to_save = os.path.join(self.sketcher.location, "overall_result.pkl")
+        with open(path_to_save, "wb") as handle:
+            pickle.dump(self.overall_result, handle)
 
     def compact_overall_result(self, mol_per_level):
         """
@@ -250,12 +256,12 @@ class EvaluationAggregate(object):
         Draw all best molecules and save metadata link to those molecules
         """
         draw_metadata = pd.DataFrame(columns=["filename", "depth", "score", "aromatic"])
-        sketcher = Sketcher(f"{self.config.experiment_name}_{self.config.seed}")
+
         best_mol = self.get_best_node_per_molecule()
         for num_mol, best_node in best_mol.items():
             for level, node in best_node.items():
                 smiles = node.compound.clean_smiles(preserve=True)
-                filename = sketcher.draw(smiles, num_mol, node.score)
+                filename = self.sketcher.draw(smiles, num_mol, node.score)
                 metadata = [
                     filename,
                     node.depth,
@@ -266,18 +272,15 @@ class EvaluationAggregate(object):
                     dict(zip(draw_metadata.columns, metadata)), ignore_index=True
                 )
 
-        draw_metadata.to_csv(
-            f"{self.config.experiment_name}_{self.config.seed}/metadata.csv"
-        )
+        draw_metadata.to_csv(f"{self.sketcher.location}/metadata.csv")
 
     def save(self):
         """
         Save the EvaluationAggregate object
         """
-        filename = f"eval_agg_{self.config.experiment_name}_{self.config.seed}.pkl"
-        with open(filename, "wb") as handle:
+        path_to_save = os.path.join(self.sketcher.location, "eval_agg.pkl")
+        with open(path_to_save, "wb") as handle:
             pickle.dump(self, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        logging.info(f"Saved eval result to {filename}")
 
 
 def compact_eval(list_eval):

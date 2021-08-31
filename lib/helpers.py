@@ -18,7 +18,7 @@ class Sketcher(object):
         self.experiment_name = experiment_name
         if path_to_save is None:
             path_dir = os.path.abspath(".")
-            path_to_save = os.path.join(path_dir, "molecule_img", experiment_name)
+            path_to_save = os.path.join(path_dir, "results", experiment_name)
         self.set_location(path_to_save)
 
     def disable(self):
@@ -46,6 +46,7 @@ class Sketcher(object):
         """
         path_dir = os.path.join(
             self.location,
+            "molecule_img",
             f"molecule_{num_molecule}" if num_molecule is not None else "",
             "_".join([str(t) for t in time.localtime()[0:5]]),
         )

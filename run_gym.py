@@ -60,6 +60,7 @@ def run(config, seed=None):
             breath_to_depth_ratio=config.breath_to_depth_ratio,
             tradeoff_param=config.tradeoff_param,
             force_begin_ring=config.force_begin_ring,
+            accepted_cycle_sizes=config.accepted_cycle_sizes,
         )
     elif config.agent == "Random":
         agent = RandomAgent()
@@ -125,11 +126,13 @@ def main():
             eval_agg.draw_best_mol_per_lvl()
             eval_agg.compact_result()
             print(eval_agg.overall_result)
+            eval_agg.save()
 
     else:
-        eval = run(config)
+        eval = run(config, config.seed)
         if config.agent == "MonteCarloTreeSearch":
             eval.save()
+            eval.generate_images()
 
 
 if __name__ == "__main__":
