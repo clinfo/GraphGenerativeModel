@@ -26,6 +26,7 @@ class MoleculeEnv(gym.Env):
         calculator: AbstractCalculator,
         max_mass: int,
         rollout_type: str = "standard",
+        aromatic_mode: bool = False,
     ):
         """
         Own initialization function since gym.make doesn't support passing arguments.
@@ -38,6 +39,7 @@ class MoleculeEnv(gym.Env):
         self.max_mass = max_mass
         rollout_dict = {"standard": "rollout_standard", "no_rollout": "no_rollout"}
         self.rollout = getattr(self, rollout_dict[rollout_type])
+        self.aromatic_mode = aromatic_mode
 
     def set_compound(self, compound: Compound):
         """
@@ -203,7 +205,7 @@ class MoleculeEnv(gym.Env):
             reward = self.calculator.calculate(molecule)
 
             # encourage aromaticity
-            if rollout == False:
+            if rollout == False and self.aromatic_mode:
                 if compound.is_aromatic():
                     reward /= 2
 

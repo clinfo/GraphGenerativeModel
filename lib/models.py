@@ -96,7 +96,9 @@ class MonteCarloTreeSearch:
             self.data_provider.fetch(molecules_to_process=molecules_to_process)
         ):
             compound.set_cycles(
-            Cycles(compound, self.config).get_cycles_of_sizes(self.config.accepted_cycle_sizes)
+                Cycles(compound, self.config).get_cycles_of_sizes(
+                    self.config.accepted_cycle_sizes
+                )
             )
             yield self.apply(compound, iterations=iterations_per_molecule, index=i)
 
@@ -430,9 +432,7 @@ class MonteCarloTreeSearch:
             while compound.get_mass() < self.max_mass:
                 if len(compound.neighboring_bonds) > 0:
                     tmp_node = Tree.Node(compound, self)
-                    compound = self.add_bond(
-                        tmp_node, "best", is_rollout=True
-                    )
+                    compound = self.add_bond(tmp_node, "best", is_rollout=True)
                 else:
                     break
             node.score = self.calculate_reward(compound)
@@ -486,7 +486,7 @@ class MonteCarloTreeSearch:
             reward = self.calculator.calculate(molecule)
 
             # encourage aromaticity
-            if rollout == False:
+            if rollout == False and self.config.select_method == "MCTS_aromatic":
                 if compound.is_aromatic():
                     reward /= 2
 
