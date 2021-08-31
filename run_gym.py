@@ -49,7 +49,12 @@ def run(config, seed=None):
         config,
     )
     env = gym.make("molecule-v0")
-    env.initialize(reward_calculator, config.max_mass, config.rollout_type)
+    env.initialize(
+        calculator=reward_calculator,
+        max_mass=config.max_mass,
+        rollout_type=config.rollout_type,
+        aromatic_mode=config.select_method == "MCTS_aromatic",
+    )
 
     if config.agent == "MonteCarloTreeSearch":
         agent = MonteCarloTreeSearchAgent(
