@@ -1,6 +1,6 @@
 {
     "dataset": "data/gen.multi.test.jbl",
-    "experiment_name": "MCTS_classic_50_10k_tanimoto_aspirin",
+    "experiment_name": "MCTS_50_10k_tanimoto_aspirin",
     "generate": 50,
     "concurrent_run": 10,
 

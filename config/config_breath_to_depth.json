@@ -1,12 +1,12 @@
 {
     "dataset": "data/gen.multi.test.jbl",
-    "experiment_name": "MCTS_classic",
-    "generate": 1,
+    "experiment_name": "breath_to_depth",
+    "generate": 50,
     "concurrent_run": 10,
 
 
-    "select_method": "MCTS_classic",
-    "rollout_type": "standard",
+    "select_method": "breath_to_depth",
+    "rollout_type": "no_rollout",
     "threshold": 0.12,
     "monte_carlo_iterations": 10000,
     "minimum_output_depth": 11,

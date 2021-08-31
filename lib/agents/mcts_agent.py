@@ -26,6 +26,7 @@ class MonteCarloTreeSearchAgent:
         breath_to_depth_ratio: float = 0,
         tradeoff_param: float = 0,
         force_begin_ring: bool = False,
+        accepted_cycle_sizes: List = None,
     ):
         """
         :param minimum_depth: from the input parameters (see README.md for details)
@@ -62,6 +63,9 @@ class MonteCarloTreeSearchAgent:
         if select_method == "random":
             self.select_bond = partial(self.select_bond, proba_type="random_on_pred")
         self.select_method = select_method
+        self.min_cycle = (
+            min(accepted_cycle_sizes) if accepted_cycle_sizes is not None else 0
+        )
 
     def reset(self, compound: Compound):
         """
@@ -150,8 +154,11 @@ class MonteCarloTreeSearchAgent:
                     # Delete all possible branches except the one after the rings
                     max_depth = max(self.states_tree.group())
                     for node in self.states_tree.flatten():
-                        if node.depth < max_depth:
+                        if node.depth < self.min_cycle:
                             node.unexplored_neighboring_bonds = []
+                        else:
+                            if len(node.children) > 0:
+                                node.unexplored_neighboring_bonds = []
             return self.select_MCTS_classic()
 
     def select_breath_to_depth(self):
