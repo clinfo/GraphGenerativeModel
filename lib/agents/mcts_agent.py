@@ -140,7 +140,7 @@ class MonteCarloTreeSearchAgent:
                 logging.debug("Reached terminal node")
                 node.selection_score *= 1.1
                 self.update(node)
-                return self.select_unvisited_node()
+                return self.select_MCTS_classic()
             else:
                 return node
         else:
