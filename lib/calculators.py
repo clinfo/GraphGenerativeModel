@@ -10,17 +10,19 @@ from rdkit.Chem import RDConfig
 from rdkit.Chem import rdMolDescriptors
 from rdkit.Chem.Crippen import MolLogP
 from rdkit.Chem.QED import qed
+from rdkit import DataStructs
 
 import importlib
 import numpy as np
 
-sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
+sys.path.append(os.path.join(RDConfig.RDContribDir, "SA_Score"))
 import sascorer
 
 
 class AbstractCalculator(metaclass=ABCMeta):
 
-    enable=True
+    enable = True
+
     @abstractmethod
     def calculate(self, mol: Chem.Mol) -> float:
         raise NotImplementedError
@@ -35,8 +37,10 @@ class AbstractEnergyCalculator(AbstractCalculator, metaclass=ABCMeta):
         self.force_field = force_field
 
         if self.force_field not in self.VALID_FORCE_FIELDS:
-            raise ValueError("'{}' cannot handle a '{}' force field!".format(
-                self.__class__.__name__, self.force_field)
+            raise ValueError(
+                "'{}' cannot handle a '{}' force field!".format(
+                    self.__class__.__name__, self.force_field
+                )
             )
 
 
@@ -72,22 +76,23 @@ class RdKitEnergyCalculator(AbstractEnergyCalculator):
         if self.force_field == self.FORCE_FIELD_UFF:
             return AllChem.UFFGetMoleculeForceField(molecule, confId)
 
+
 def read_histogram_file(filename):
-    hist_data=[]
-    sum_data=0
+    hist_data = []
+    sum_data = 0
     for line in open(filename):
-        bin_data=line.split("\t")
-        if len(bin_data)>0:
-            if bin_data[0]=="":
-                bin_begin=-np.inf
+        bin_data = line.split("\t")
+        if len(bin_data) > 0:
+            if bin_data[0] == "":
+                bin_begin = -np.inf
             else:
-                bin_begin=float(bin_data[0])
-            if bin_data[1]=="":
-                bin_end= np.inf
+                bin_begin = float(bin_data[0])
+            if bin_data[1] == "":
+                bin_end = np.inf
             else:
-                bin_end=float(bin_data[1])
-            v=float(bin_data[2])
-            sum_data+=v
+                bin_end = float(bin_data[1])
+            v = float(bin_data[2])
+            sum_data += v
             hist_data.append((bin_begin, bin_end, v))
     return hist_data, sum_data
 
@@ -101,7 +106,11 @@ class BabelEnergyCalculator(AbstractEnergyCalculator):
     FORCE_FIELD_GHEMICAL = "ghemical"
 
     VALID_FORCE_FIELDS = [
-        FORCE_FIELD_UFF, FORCE_FIELD_MMFF94, FORCE_FIELD_MMFF94S, FORCE_FIELD_GAFF, FORCE_FIELD_GHEMICAL
+        FORCE_FIELD_UFF,
+        FORCE_FIELD_MMFF94,
+        FORCE_FIELD_MMFF94S,
+        FORCE_FIELD_GAFF,
+        FORCE_FIELD_GHEMICAL,
     ]
 
     def calculate(self, mol: Chem.Mol) -> float:
@@ -119,8 +128,9 @@ class BabelEnergyCalculator(AbstractEnergyCalculator):
 
 
 class AtomWiseEnergyCalculator(AbstractCalculator):
-
-    def __init__(self, energy_calculator: Union[RdKitEnergyCalculator, BabelEnergyCalculator]):
+    def __init__(
+        self, energy_calculator: Union[RdKitEnergyCalculator, BabelEnergyCalculator]
+    ):
         self.energy_calculator = energy_calculator
 
     def calculate(self, mol: Chem.Mol) -> float:
@@ -129,68 +139,80 @@ class AtomWiseEnergyCalculator(AbstractCalculator):
 
 
 class LogpCalculator(AbstractCalculator):
-
     def calculate(self, mol: Chem.Mol) -> float:
         return max(MolLogP(mol) - 5, 0)
 
 
 class MwCalculator(AbstractCalculator):
-
     def calculate(self, mol: Chem.Mol) -> float:
         return rdMolDescriptors.CalcExactMolWt(mol)
 
 
 class QedCalculator(AbstractCalculator):
-
     def calculate(self, mol: Chem.Mol) -> float:
         return 1 - qed(mol)
 
 
 class SaCalculator(AbstractCalculator):
-
     def calculate(self, mol: Chem.Mol) -> float:
         Chem.GetSymmSSSR(mol)
         return sascorer.calculateScore(mol)
 
 
 class RingCountCalculator(AbstractCalculator):
-
     def calculate(self, mol: Chem.Mol) -> float:
         Chem.GetSymmSSSR(mol)
         return -mol.GetRingInfo().NumRings()
 
 
+class TanimotoCalculator(AbstractCalculator):
+    def __init__(self, reward_calculator, tanimoto_smiles):
+        if reward_calculator == "tanimoto" or "tanimoto" in reward_calculator:
+            assert (
+                tanimoto_smiles is not None
+            ), "To use tanimoto similarity as a reward you must enter a smile in the \
+                fiels 'tanimoto_smile'"
+            mol = Chem.MolFromSmiles(tanimoto_smiles)
+            self.compared_fps = Chem.RDKFingerprint(mol)
+
+    def calculate(self, mol: Chem.Mol) -> float:
+        fps_mol = Chem.RDKFingerprint(mol)
+        return DataStructs.FingerprintSimilarity(fps_mol, self.compared_fps)
+
+
 class HistogramCalculator(AbstractCalculator):
-    BASE_PATH="hist/"
+    BASE_PATH = "hist/"
+
     def __init__(self, calc, name):
-        self.calc=calc
-        filepath=self.BASE_PATH+name+".tsv"
+        self.calc = calc
+        filepath = self.BASE_PATH + name + ".tsv"
         if os.path.exists(filepath):
             self.hist_data, self.sum = read_histogram_file(filepath)
         else:
-            self.enable=False
+            self.enable = False
             self.hist_data, self.sum = None, None
 
     def calculate(self, mol: Chem.Mol) -> float:
-        s=self.calc.calculate(mol)
+        s = self.calc.calculate(mol)
         for bin_begin, bin_end, val in self.hist_data:
-            if bin_begin<s and s<=bin_end:
-                likelihood=val/((bin_end-bin_begin)*self.sum)
-                ll=-np.log(likelihood+1.0e-10)
+            if bin_begin < s and s <= bin_end:
+                likelihood = val / ((bin_end - bin_begin) * self.sum)
+                ll = -np.log(likelihood + 1.0e-10)
                 return ll
         return 1.0e10
 
+
 class CombinationCalculator(AbstractCalculator):
-    def __init__(self,calcs: list, weights:list=None):
-        self.calcs=calcs
-        self.calc_weights=weights
-        
+    def __init__(self, calcs: list, weights: list = None):
+        self.calcs = calcs
+        self.calc_weights = weights
+
     def calculate(self, mol: Chem.Mol) -> float:
-        scores=[]
-        for i,calc in enumerate(self.calcs):
-            score=calc.calculate(mol)
+        scores = []
+        for i, calc in enumerate(self.calcs):
+            score = calc.calculate(mol)
             if self.calc_weights is not None:
-                scores.append(self.calc_weights[i]*score)
+                scores.append(self.calc_weights[i] * score)
             else:
                 scores.append(score)
         return sum(scores)
@@ -219,9 +241,10 @@ class CalculatorFactory:
     SA = "sa"
     MW = "mw"
     RING_COUNT = "ring_count"
+    TANIMOTO = "tanimoto"
 
     @staticmethod
-    def get_options():
+    def get_options(config):
         options = {
             CalculatorFactory.COMPOUND_ENERGY_RDKIT_UFF: RdKitEnergyCalculator(
                 RdKitEnergyCalculator.FORCE_FIELD_UFF
@@ -269,22 +292,25 @@ class CalculatorFactory:
             CalculatorFactory.MW: MwCalculator(),
             CalculatorFactory.QED: QedCalculator(),
             CalculatorFactory.SA: SaCalculator(),
-            CalculatorFactory.RING_COUNT: RingCountCalculator()
+            CalculatorFactory.RING_COUNT: RingCountCalculator(),
+            CalculatorFactory.TANIMOTO: TanimotoCalculator(
+                config.reward_calculator, config.tanimoto_smiles
+            ),
         }
-        opt={}
+        opt = {}
         for key in options.keys():
-            opt["hist_"+key]=HistogramCalculator(options[key],"hist_"+key)
+            opt["hist_" + key] = HistogramCalculator(options[key], "hist_" + key)
         options.update(opt)
-        print(options)
+        # print(options)
         return options
-    
+
     @staticmethod
     def get_external_calc(name, config):
-        external_options=["kgcn"]
+        external_options = ["kgcn"]
         if name in external_options:
-            #calc_obj=calc.kgcn.Calculator(config)
-            mod_name="calc."+name
-            mod=importlib.import_module(mod_name)
+            # calc_obj=calc.kgcn.Calculator(config)
+            mod_name = "calc." + name
+            mod = importlib.import_module(mod_name)
             cls = getattr(mod, "Calculator")
             calc_obj = cls(config)
             return calc_obj
@@ -293,14 +319,16 @@ class CalculatorFactory:
 
     @staticmethod
     def create(reward_type, reward_weights=None, config=None) -> AbstractCalculator:
-        options = CalculatorFactory.get_options()
-        def get_calc(name,config):
+        options = CalculatorFactory.get_options(config)
+
+        def get_calc(name, config):
             if name in options:
                 return options[name]
             return CalculatorFactory.get_external_calc(name, config)
+
         if type(reward_type) is str:
-            return get_calc(reward_type,config)
+            return get_calc(reward_type, config)
         elif type(reward_type) is list:
-            calcs=[get_calc(rt,config) for rt in reward_type]
-            return CombinationCalculator(calcs,reward_weights)
+            calcs = [get_calc(rt, config) for rt in reward_type]
+            return CombinationCalculator(calcs, reward_weights)
         return options[reward_type]

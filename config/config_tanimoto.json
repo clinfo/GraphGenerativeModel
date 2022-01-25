@@ -1,0 +1,25 @@
+{
+    "dataset": "data/gen.multi.test.jbl",
+    "experiment_name": "MCTS_50_10k_tanimoto_aspirin",
+    "generate": 50,
+    "concurrent_run": 10,
+
+
+    "select_method": "MCTS_classic",
+    "rollout_type": "standard",
+    "threshold": 0.12,
+    "monte_carlo_iterations": 10000,
+    "minimum_output_depth": 11,
+    "output_type": "per_level",
+    "breath_to_depth_ratio": 0.5,
+    "tradeoff_param": 1.5,
+    "max_mass": 500,
+    "seed": 43,
+
+    "reward_calculator": ["tanimoto"],
+    "reward_weights": [-1],
+    "tanimoto_smiles": "CC(=O)OC1=CC=CC=C1C(=O)O",
+    "filters": ["molecular_weight"],
+
+    "logging": 20
+}
