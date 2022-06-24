@@ -299,7 +299,7 @@ class Compound(object):
                         break
 
                 if cleanup:
-                    break
+                    continue
 
                 candidate_atoms = set()
 
