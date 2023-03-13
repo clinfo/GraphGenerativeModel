@@ -494,7 +494,7 @@ class MonteCarloTreeSearch:
             reward = self.calculator.calculate(molecule)
 
             # encourage aromaticity
-            if rollout == False and self.config.select_method == "MCTS_aromatic":
+            if self.config.select_method == "MCTS_aromatic"
                 if compound.is_aromatic():
                     reward /= 2
 
